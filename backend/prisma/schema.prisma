@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id               String   @id @default(uuid())
+  name             String
+  subscriptionTier String   @default("FREE")
+  users            User[]
+  customers        Customer[]
+  tickets          Ticket[]
+  createdAt        DateTime @default(now())
+}
+
+model User {
+  id        String   @id @default(uuid())
+  orgId     String
+  email     String   @unique
+  password  String
+  role      Role
+  org       Organization @relation(fields: [orgId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  orgId     String
+  email     String
+  name      String
+  org       Organization @relation(fields: [orgId], references: [id])
+}
+
+model Ticket {
+  id         String   @id @default(uuid())
+  orgId      String
+  customerId String
+  status     TicketStatus @default(OPEN)
+  priority   Priority     @default(MEDIUM)
+  subject    String
+  org        Organization @relation(fields: [orgId], references: [id])
+  customer   Customer     @relation(fields: [customerId], references: [id])
+  createdAt  DateTime     @default(now())
+}
+
+enum Role {
+  ADMIN
+  AGENT
+}
+
+enum TicketStatus {
+  OPEN
+  AI_HANDLING
+  WAITING_FOR_HUMAN
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
