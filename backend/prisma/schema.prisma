@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // connection URL moved to prisma.config.ts per Prisma 7 requirements
 }
 
 model Organization {
@@ -33,6 +33,7 @@ model Customer {
   email     String
   name      String
   org       Organization @relation(fields: [orgId], references: [id])
+  tickets   Ticket[]
 }
 
 model Ticket {
