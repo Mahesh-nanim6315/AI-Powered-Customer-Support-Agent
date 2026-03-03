@@ -23,6 +23,7 @@ model User {
   email     String   @unique
   password  String
   role      Role
+  agent     Agent?
   org       Organization @relation(fields: [orgId], references: [id])
   createdAt DateTime @default(now())
 }
@@ -43,6 +44,9 @@ model Ticket {
   status     TicketStatus @default(OPEN)
   priority   Priority     @default(MEDIUM)
   subject    String
+  messages   TicketMessage[]
+  assignedAgentId String?
+  assignedAgent   Agent?   @relation(fields: [assignedAgentId], references: [id])
   org        Organization @relation(fields: [orgId], references: [id])
   customer   Customer     @relation(fields: [customerId], references: [id])
   createdAt  DateTime     @default(now())
@@ -65,4 +69,33 @@ enum Priority {
   LOW
   MEDIUM
   HIGH
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  senderId  String?
+  role      MessageRole
+  content   String
+  createdAt DateTime @default(now())
+
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+}
+
+enum MessageRole {
+  CUSTOMER
+  AGENT
+  AI
+}
+
+
+model Agent {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  specialization String?
+  busyStatus     Boolean  @default(false)
+  activeTickets  Int      @default(0)
+  lastAssignedAt DateTime?
+  assignedTickets Ticket[]
+  user           User     @relation(fields: [userId], references: [id])
 }
