@@ -1,79 +1,143 @@
-import { PropsWithChildren } from "react";
-import { NavLink } from "react-router-dom";
-import "../layout.css";
+import { PropsWithChildren, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  MessageSquare,
+  Users,
+  Zap,
+  BookOpen,
+  LogOut,
+  Menu,
+  X,
+  Lightbulb,
+  Circle,
+} from 'lucide-react';
+import { useRealtime } from '../context/RealtimeContext';
+import '../layout.css';
+import type { UserRole } from '../types';
 
 interface AppLayoutProps extends PropsWithChildren {
   userEmail: string;
+  userRole: UserRole;
   onLogout: () => void;
 }
 
-export function AppLayout({ children, userEmail, onLogout }: AppLayoutProps) {
+export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayoutProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const realtime = useRealtime();
+
+  const navItems = [
+    {
+      icon: LayoutDashboard,
+      label: 'Dashboard',
+      path: '/dashboard',
+    },
+    {
+      icon: MessageSquare,
+      label: 'Tickets',
+      path: '/tickets',
+      allowedRoles: ['ADMIN', 'AGENT'],
+    },
+    {
+      icon: Users,
+      label: 'Customers',
+      path: '/customers',
+      allowedRoles: ['ADMIN'],
+    },
+    {
+      icon: Zap,
+      label: 'Agents',
+      path: '/agents',
+      allowedRoles: ['ADMIN'],
+    },
+    {
+      icon: BookOpen,
+      label: 'Knowledge Base',
+      path: '/knowledge',
+      allowedRoles: ['ADMIN', 'AGENT'],
+    },
+    {
+      icon: Lightbulb,
+      label: 'AI Suggestions',
+      path: '/ai-suggestions',
+      allowedRoles: ['ADMIN', 'AGENT'],
+    },
+  ];
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.allowedRoles || item.allowedRoles.includes(userRole)
+  );
+
+  const handleNavClick = () => {
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <div className="app-shell">
-      <aside className="app-sidebar">
-        <div className="app-logo">Chitti AI</div>
+      <aside className={`app-sidebar ${isMobileMenuOpen ? 'app-sidebar--open' : ''}`}>
+        <div className="app-sidebar-header">
+          <div className="app-logo">
+            <Lightbulb size={24} />
+            <span>Chitti</span>
+          </div>
+          <button
+            className="app-sidebar-toggle"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
         <nav className="app-nav">
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              `app-nav-item${isActive ? " app-nav-item-active" : ""}`
-            }
-          >
-            Dashboard
-          </NavLink>
-          <NavLink
-            to="/tickets"
-            className={({ isActive }) =>
-              `app-nav-item${isActive ? " app-nav-item-active" : ""}`
-            }
-          >
-            Tickets
-          </NavLink>
-          <NavLink
-            to="/customers"
-            className={({ isActive }) =>
-              `app-nav-item${isActive ? " app-nav-item-active" : ""}`
-            }
-          >
-            Customers
-          </NavLink>
-          <NavLink
-            to="/agents"
-            className={({ isActive }) =>
-              `app-nav-item${isActive ? " app-nav-item-active" : ""}`
-            }
-          >
-            Agents
-          </NavLink>
-          <NavLink
-            to="/knowledge"
-            className={({ isActive }) =>
-              `app-nav-item${isActive ? " app-nav-item-active" : ""}`
-            }
-          >
-            Knowledge Base
-          </NavLink>
-          <NavLink
-            to="/ai-suggestions"
-            className={({ isActive }) =>
-              `app-nav-item${isActive ? " app-nav-item-active" : ""}`
-            }
-          >
-            AI Suggestions
-          </NavLink>
+          {visibleNavItems.map(({ icon: Icon, label, path }) => (
+            <NavLink
+              key={path}
+              to={path}
+              className={({ isActive }) =>
+                `app-nav-item ${isActive ? 'app-nav-item--active' : ''}`
+              }
+              onClick={handleNavClick}
+            >
+              <Icon size={20} />
+              <span>{label}</span>
+            </NavLink>
+          ))}
         </nav>
+
+        <div className="app-sidebar-footer">
+          <div className="app-user-info">
+            <div className="app-user-avatar">{userEmail.charAt(0).toUpperCase()}</div>
+            <div className="app-user-details">
+              <div className="app-user-email">{userEmail}</div>
+              <div className="app-user-role">{userRole}</div>
+            </div>
+          </div>
+        </div>
       </aside>
 
       <div className="app-main">
         <header className="app-header">
-          <div className="app-header-title">AI-Powered Support Console</div>
-          <div className="app-header-user">
-            <span className="app-header-user-name">{userEmail}</span>
-            <button className="app-header-logout" type="button" onClick={onLogout}>
-              Logout
-            </button>
+          <button
+            className="app-header-toggle"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            <Menu size={24} />
+          </button>
+          <div className="app-header-title">Support Console</div>
+          <div className="app-header-status">
+            <div
+              className={`connection-status ${realtime.isConnected ? 'connected' : 'disconnected'}`}
+              title={realtime.isConnected ? 'Connected to real-time updates' : 'Reconnecting...'}
+            >
+              <Circle size={12} fill={realtime.isConnected ? '#10b981' : '#ef4444'} color={realtime.isConnected ? '#10b981' : '#ef4444'} />
+              <span>{realtime.isConnected ? 'Live' : 'Offline'}</span>
+            </div>
           </div>
+          <button className="app-header-logout" onClick={onLogout} title="Logout">
+            <LogOut size={20} />
+          </button>
         </header>
+
         <main className="app-content">{children}</main>
       </div>
     </div>

@@ -1,148 +1,311 @@
-import { useEffect, useState } from "react";
-import "../page.css";
-import type { Ticket } from "../types";
-import { fetchTickets } from "../api";
+import { useState, useEffect } from 'react';
+import { useTickets, useCreateTicket, useUpdateTicketStatus } from '../hooks/useTickets';
+import { useCustomers } from '../hooks/useCustomers';
+import { useRealtime } from '../context/RealtimeContext';
+import { Card, Button, Input, Select, Badge, Spinner, Modal, TextArea, Alert } from '../components';
+import { ChevronRight, Plus, Zap, Search } from 'lucide-react';
+import type { Ticket, CreateTicketRequest, TicketStatus } from '../types';
+import '../page.css';
 
-interface TicketsPageProps {
-  token: string;
-}
+export function TicketsPage() {
+  const ticketsQuery = useTickets();
+  const customersQuery = useCustomers();
+  const createTicketMutation = useCreateTicket();
+  const updateStatusMutation = useUpdateTicketStatus();
+  const realtime = useRealtime();
 
-const dummyTickets: Ticket[] = [
-  {
-    id: "TCK-101",
-    subject: "Refund for double charge",
-    status: "OPEN",
-    priority: "HIGH",
-    customerName: "Alice Johnson",
-    createdAt: "2026-03-03T10:12:00Z",
-    updatedAt: "2026-03-03T11:45:00Z",
-    assignedAgent: "John Doe",
-  },
-  {
-    id: "TCK-102",
-    subject: "Order not received",
-    status: "PENDING",
-    priority: "MEDIUM",
-    customerName: "Bob Smith",
-    createdAt: "2026-03-02T09:00:00Z",
-    updatedAt: "2026-03-02T12:30:00Z",
-    assignedAgent: "Jane Miller",
-  },
-  {
-    id: "TCK-103",
-    subject: "Cannot reset password",
-    status: "RESOLVED",
-    priority: "LOW",
-    customerName: "Charlie Brown",
-    createdAt: "2026-03-01T14:22:00Z",
-    updatedAt: "2026-03-01T16:00:00Z",
-  },
-];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [priorityFilter, setPriorityFilter] = useState<string>('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [showLiveNotification, setShowLiveNotification] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    customerId: '',
+    subject: '',
+    description: '',
+    priority: 'MEDIUM' as const,
+  });
 
-export function TicketsPage({ token }: TicketsPageProps) {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const tickets = ticketsQuery.data || [];
+  const customers = customersQuery.data || [];
 
+  // Listen for real-time updates and refresh tickets
   useEffect(() => {
-    let cancelled = false;
+    if (realtime.ticketCreated.id || realtime.ticketUpdated.id) {
+      setShowLiveNotification(true);
+      ticketsQuery.refetch();
+      const timer = setTimeout(() => setShowLiveNotification(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [realtime.ticketCreated, realtime.ticketUpdated, ticketsQuery]);
 
-    async function load() {
-      setLoading(true);
-      setError(null);
+  const filteredTickets = tickets.filter((ticket) => {
+    const matchesSearch =
+      ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = !statusFilter || ticket.status === statusFilter;
+    const matchesPriority = !priorityFilter || ticket.priority === priorityFilter;
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
 
-      try {
-        const apiTickets = await fetchTickets(token);
-        if (!cancelled) {
-          setTickets(apiTickets);
-        }
-      } catch (err) {
-        console.error(err);
-        if (!cancelled) {
-          setError(
-            "Could not load tickets from the API. Showing demo data instead.",
-          );
-          setTickets(dummyTickets);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+  const handleCreateTicket = async () => {
+    if (!createFormData.customerId || !createFormData.subject) {
+      alert('Please fill in all required fields');
+      return;
     }
 
-    load();
+    try {
+      await createTicketMutation.mutateAsync({
+        customerId: createFormData.customerId,
+        subject: createFormData.subject,
+        description: createFormData.description,
+        priority: createFormData.priority,
+      });
+      setIsCreateModalOpen(false);
+      setCreateFormData({
+        customerId: '',
+        subject: '',
+        description: '',
+        priority: 'MEDIUM',
+      });
+    } catch (error) {
+      console.error('Failed to create ticket:', error);
+    }
+  };
 
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+  const handleStatusChange = async (ticketId: string, newStatus: TicketStatus) => {
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: ticketId,
+        status: newStatus,
+      });
+    } catch (error) {
+      console.error('Failed to update ticket status:', error);
+    }
+  };
+
+  const priorityColors: Record<string, 'danger' | 'warning' | 'success'> = {
+    HIGH: 'danger',
+    MEDIUM: 'warning',
+    LOW: 'success',
+  };
+
+  const statusColors: Record<string, 'danger' | 'warning' | 'info' | 'success'> = {
+    OPEN: 'danger',
+    WAITING_FOR_HUMAN: 'warning',
+    AI_HANDLING: 'info',
+    RESOLVED: 'success',
+    CLOSED: 'success',
+  };
+
+  if (ticketsQuery.isLoading || customersQuery.isLoading) {
+    return (
+      <div className="page">
+        <Spinner fullScreen />
+      </div>
+    );
+  }
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Tickets</h1>
-          <p className="page-subtitle">
-            View and manage customer conversations across all channels.
-          </p>
+          <h1 className="page-title">Support Tickets</h1>
+          <p className="page-subtitle">Manage and track customer issues</p>
         </div>
-        <div className="page-actions">
-          <button className="btn-primary" type="button">
-            New ticket
-          </button>
-        </div>
+        <Button onClick={() => setIsCreateModalOpen(true)}>
+          <Plus size={18} />
+          New Ticket
+        </Button>
       </div>
 
-      <div className="card">
-        {loading && <div className="table-status">Loading tickets…</div>}
-        {!loading && error && <div className="table-error">{error}</div>}
-        {!loading && !error && tickets.length === 0 && (
-          <div className="table-status">No tickets yet.</div>
-        )}
+      {showLiveNotification && (
+        <Alert type="info" title="Live Update" onClose={() => setShowLiveNotification(false)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Zap size={16} style={{ animation: 'pulse 1s infinite' }} />
+            Tickets refreshed from live updates
+          </div>
+        </Alert>
+      )}
 
-        {tickets.length > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Subject</th>
-                <th>Customer</th>
-                <th>Status</th>
-                <th>Priority</th>
-                <th>Assigned</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map((ticket) => (
-                <tr key={ticket.id}>
-                  <td>{ticket.id}</td>
-                  <td>{ticket.subject}</td>
-                  <td>{ticket.customerName}</td>
-                  <td>
-                    <span
-                      className={`badge badge-status-${ticket.status.toLowerCase()}`}
-                    >
+      {!realtime.isConnected && (
+        <Alert type="warning" title="Connection Status">
+          Reconnecting to live updates...
+        </Alert>
+      )}
+
+      <Card className="search-filters">
+        <div className="filters-row">
+          <div className="filter-input">
+            <Search size={20} />
+            <Input
+              placeholder="Search by subject or customer..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ border: 'none', padding: '0.5rem' }}
+            />
+          </div>
+          <Select
+            options={[
+              { value: '', label: 'All Statuses' },
+              { value: 'OPEN', label: 'Open' },
+              { value: 'AI_HANDLING', label: 'AI Handling' },
+              { value: 'WAITING_FOR_HUMAN', label: 'Waiting for Human' },
+              { value: 'RESOLVED', label: 'Resolved' },
+              { value: 'CLOSED', label: 'Closed' },
+            ]}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          />
+          <Select
+            options={[
+              { value: '', label: 'All Priorities' },
+              { value: 'LOW', label: 'Low' },
+              { value: 'MEDIUM', label: 'Medium' },
+              { value: 'HIGH', label: 'High' },
+            ]}
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+          />
+        </div>
+      </Card>
+
+      {filteredTickets.length === 0 ? (
+        <Card className="empty-card">
+          <div className="empty-state">
+            <MessageSquareOff size={48} />
+            <p>No tickets found</p>
+            <p className="text-muted">Try adjusting your filters</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="tickets-list">
+          {filteredTickets.map((ticket) => (
+            <Card
+              key={ticket.id}
+              hoverable
+              onClick={() => setSelectedTicketId(ticket.id)}
+              className="ticket-card"
+            >
+              <div className="ticket-content">
+                <div className="ticket-main">
+                  <h3 className="ticket-title">{ticket.subject}</h3>
+                  <p className="ticket-customer">
+                    {ticket.customer?.name || 'Unknown Customer'}
+                  </p>
+                  <div className="ticket-meta">
+                    <span>Created {new Date(ticket.createdAt).toLocaleDateString()}</span>
+                    <span>•</span>
+                    <span>{ticket.messages?.length || 0} messages</span>
+                  </div>
+                </div>
+                <div className="ticket-side">
+                  <div className="ticket-badges">
+                    <Badge variant={statusColors[ticket.status] as any}>
                       {ticket.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className={`badge badge-priority-${ticket.priority.toLowerCase()}`}
-                    >
+                    </Badge>
+                    <Badge variant={priorityColors[ticket.priority] as any}>
                       {ticket.priority}
-                    </span>
-                  </td>
-                  <td>{ticket.assignedAgent ?? "Unassigned"}</td>
-                  <td>{new Date(ticket.updatedAt).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                    </Badge>
+                  </div>
+                  {ticket.assignedAgent && (
+                    <div className="ticket-agent">
+                      Assigned to {ticket.assignedAgent.user?.email}
+                    </div>
+                  )}
+                  <ChevronRight size={20} className="ticket-arrow" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title="Create New Ticket"
+        actions={
+          <div className="modal-actions">
+            <Button
+              variant="secondary"
+              onClick={() => setIsCreateModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateTicket}
+              disabled={createTicketMutation.isPending}
+            >
+              {createTicketMutation.isPending ? 'Creating...' : 'Create Ticket'}
+            </Button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <Select
+            label="Customer *"
+            options={customers.map((c) => ({
+              value: c.id,
+              label: c.name,
+            }))}
+            value={createFormData.customerId}
+            onChange={(e) =>
+              setCreateFormData({ ...createFormData, customerId: e.target.value })
+            }
+          />
+          <Input
+            label="Subject *"
+            placeholder="Brief description of the issue"
+            value={createFormData.subject}
+            onChange={(e) =>
+              setCreateFormData({ ...createFormData, subject: e.target.value })
+            }
+          />
+          <TextArea
+            label="Description"
+            placeholder="Detailed description..."
+            value={createFormData.description}
+            onChange={(e) =>
+              setCreateFormData({ ...createFormData, description: e.target.value })
+            }
+          />
+          <Select
+            label="Priority"
+            options={[
+              { value: 'LOW', label: 'Low' },
+              { value: 'MEDIUM', label: 'Medium' },
+              { value: 'HIGH', label: 'High' },
+            ]}
+            value={createFormData.priority}
+            onChange={(e) =>
+              setCreateFormData({
+                ...createFormData,
+                priority: e.target.value as any,
+              })
+            }
+          />
+        </div>
+      </Modal>
     </div>
+  );
+}
+
+// Placeholder icon component
+function MessageSquareOff({ size }: { size: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <line x1="3" y1="3" x2="21" y2="21" />
+    </svg>
   );
 }
 

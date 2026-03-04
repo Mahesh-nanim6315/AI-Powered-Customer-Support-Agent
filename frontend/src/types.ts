@@ -1,4 +1,5 @@
-export type UserRole = "ADMIN" | "AGENT";
+// ============ AUTH ============
+export type UserRole = "ADMIN" | "AGENT" | "CUSTOMER";
 
 export interface AuthUser {
   id: string;
@@ -8,39 +9,152 @@ export interface AuthUser {
   token: string;
 }
 
-export interface Ticket {
-  id: string;
-  subject: string;
-  status: string;
-  priority: string;
-  customerName: string;
-  createdAt: string;
-  updatedAt: string;
-  assignedAgent?: string;
+export interface LoginRequest {
+  email: string;
+  password: string;
 }
 
-export interface Customer {
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    orgId: string;
+    role: UserRole;
+  };
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  orgName?: string;
+}
+
+// ============ ORGANIZATION ============
+export interface Organization {
   id: string;
   name: string;
-  email: string;
+  subscriptionTier: string;
+  aiEnabled: boolean;
   createdAt: string;
-  totalTickets: number;
-  lastSeenAt?: string;
 }
 
+// ============ TICKETS ============
+export type TicketStatus = "OPEN" | "AI_HANDLING" | "WAITING_FOR_HUMAN" | "RESOLVED" | "CLOSED";
+export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";
+export type MessageRole = "CUSTOMER" | "AGENT" | "AI";
+
+export interface Ticket {
+  id: string;
+  orgId: string;
+  customerId: string;
+  subject: string;
+  description?: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  assignedAgentId?: string;
+  messages?: TicketMessage[];
+  createdAt: string;
+  updatedAt: string;
+  customer?: Customer;
+  assignedAgent?: Agent;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticketId: string;
+  senderId?: string;
+  role: MessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface CreateTicketRequest {
+  customerId: string;
+  subject: string;
+  description?: string;
+  priority?: TicketPriority;
+}
+
+// ============ CUSTOMERS ============
+export interface Customer {
+  id: string;
+  orgId: string;
+  email: string;
+  name: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  tickets?: Ticket[];
+}
+
+export interface CreateCustomerRequest {
+  email: string;
+  name: string;
+  metadata?: Record<string, any>;
+}
+
+// ============ AGENTS ============
 export interface Agent {
   id: string;
-  email: string;
-  role: UserRole;
-  activeTickets: number;
+  userId: string;
   specialization?: string;
+  busyStatus: boolean;
+  activeTickets: number;
+  lastAssignedAt?: string;
+  user?: User;
 }
+
+export interface User {
+  id: string;
+  email: string;
+  orgId: string;
+  role: UserRole;
+  createdAt: string;
+}
+
+// ============ AI SUGGESTIONS ============
+export type SuggestionStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXECUTED";
 
 export interface AiSuggestion {
   id: string;
-  summary: string;
+  orgId: string;
+  ticketId: string;
   actionType: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  params: Record<string, any>;
+  status: SuggestionStatus;
   createdAt: string;
+  decidedAt?: string;
+  ticket?: Ticket;
+}
+
+// ============ KNOWLEDGE BASE ============
+export interface KnowledgeBase {
+  id: string;
+  orgId: string;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface CreateKnowledgeRequest {
+  title: string;
+  content: string;
+}
+
+// ============ ANALYTICS ============
+export interface TicketAnalytics {
+  id: string;
+  ticketId: string;
+  sentimentScore?: number;
+  createdAt: string;
+}
+
+export interface DashboardAnalytics {
+  totalTickets: number;
+  openTickets: number;
+  resolvedTickets: number;
+  avgResponseTime: number;
+  aiResolutionRate: number;
+  customerSatisfaction: number;
 }
 

@@ -37,7 +37,15 @@ export class AuthService {
             role: user.role
         });
 
-        return { token };
+        return {
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                orgId: organization.id,
+                role: user.role
+            }
+        };
     }
 
     static async login(email: string, password: string) {
@@ -62,6 +70,14 @@ export class AuthService {
             role: user.role
         });
 
-        return { token };
+        return {
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                orgId: user.orgId,
+                role: user.role
+            }
+        };
     }
 }

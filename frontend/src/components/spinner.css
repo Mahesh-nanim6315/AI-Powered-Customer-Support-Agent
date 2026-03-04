@@ -1,0 +1,38 @@
+.spinner {
+    display: inline-block;
+    border: 3px solid #f3f4f6;
+    border-radius: 50%;
+    border-top: 3px solid #2563eb;
+    animation: spin 1s linear infinite;
+}
+
+.spinner--sm {
+    width: 20px;
+    height: 20px;
+}
+
+.spinner--md {
+    width: 32px;
+    height: 32px;
+}
+
+.spinner--lg {
+    width: 48px;
+    height: 48px;
+}
+
+.spinner-container--full {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 9999;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

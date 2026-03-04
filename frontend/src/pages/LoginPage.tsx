@@ -1,75 +1,136 @@
-import { FormEvent, useState } from "react";
-import type { AuthUser } from "../types";
-import { login } from "../api";
-import "../auth.css";
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useLogin } from '../hooks/useAuth';
+import type { AuthUser, LoginRequest } from '../types';
+import { Input, Button, Alert, Spinner } from '../components';
+import '../auth.css';
 
 interface LoginPageProps {
   onAuthenticated: (user: AuthUser) => void;
+  onGoToSignup?: () => void;
 }
 
-export function LoginPage({ onAuthenticated }: LoginPageProps) {
-  const [email, setEmail] = useState("admin@example.com");
-  const [password, setPassword] = useState("password123");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function LoginPage({ onAuthenticated, onGoToSignup }: LoginPageProps) {
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<LoginRequest>({
+    defaultValues: {
+      email: 'admin@example.com',
+      password: 'password123',
+    },
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const loginMutation = useLogin();
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-
-    if (!email || !password) {
-      setError("Please enter an email and password.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
+  async function onSubmit(data: LoginRequest) {
     try {
-      const user: AuthUser = await login(email, password);
-      onAuthenticated(user);
-    } catch (err) {
-      console.error(err);
-      setError("Invalid credentials or server error. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+      const response = await loginMutation.mutateAsync(data);
+      const authUser: AuthUser = {
+        id: response.user.id,
+        email: response.user.email,
+        orgId: response.user.orgId,
+        role: response.user.role,
+        token: response.token,
+      };
+      onAuthenticated(authUser);
+    } catch (error) {
+      console.error('Login failed:', error);
     }
   }
+
+  const isLoading = loginMutation.isPending;
+  const email = watch('email');
 
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">Sign in to Chitti AI</h1>
-        <p className="auth-subtitle">
-          Use your organization admin or agent account to access the console.
-        </p>
+        <div className="auth-header">
+          <h1 className="auth-title">Chitti AI</h1>
+          <p className="auth-subtitle">Customer Support Intelligence Platform</p>
+        </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          {error && <div className="auth-error">{error}</div>}
-          <label className="auth-label">
-            Work email
-            <input
-              type="email"
-              className="auth-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+        <form className="auth-form" onSubmit={handleSubmit(onSubmit)}>
+          {loginMutation.isError && (
+            <Alert type="error" title="Login Failed">
+              {loginMutation.error instanceof Error ? loginMutation.error.message : 'Invalid credentials or server error'}
+            </Alert>
+          )}
+
+          <Input
+            label="Email"
+            type="email"
+            placeholder="admin@example.com"
+            {...register('email', {
+              required: 'Email is required',
+              pattern: {
+                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                message: 'Invalid email address',
+              },
+            })}
+            error={errors.email?.message}
+            disabled={isLoading}
+          />
+
+          <div className="password-wrapper">
+            <Input
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              {...register('password', {
+                required: 'Password is required',
+                minLength: {
+                  value: 6,
+                  message: 'Password must be at least 6 characters',
+                },
+              })}
+              error={errors.password?.message}
+              disabled={isLoading}
             />
-          </label>
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
 
-          <label className="auth-label">
-            Password
-            <input
-              type="password"
-              className="auth-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </label>
+          <Button
+            type="submit"
+            fullWidth
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Spinner size="sm" />
+                Signing in...
+              </div>
+            ) : (
+              'Sign In'
+            )}
+          </Button>
 
-          <button className="auth-submit" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Sign in"}
-          </button>
+          <p className="auth-demo-note">
+            Demo credentials:
+            <br />
+            Email: admin@example.com
+            <br />
+            Password: password123
+          </p>
+
+          {onGoToSignup && (
+            <>
+              <div className="auth-divider">
+                <span>Don't have an account?</span>
+              </div>
+              <button
+                type="button"
+                className="auth-link-button"
+                onClick={onGoToSignup}
+                disabled={isLoading}
+              >
+                Create Account
+              </button>
+            </>
+          )}
         </form>
       </div>
     </div>

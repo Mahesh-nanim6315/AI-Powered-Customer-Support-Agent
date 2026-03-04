@@ -1,39 +1,305 @@
 .app-shell {
-  /* additional layout-specific tweaks can go here if needed */
+  display: flex;
+  min-height: 100vh;
+  background-color: #f9fafb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
-@media (max-width: 960px) {
-  .app-sidebar {
-    width: 210px;
+/* Sidebar */
+.app-sidebar {
+  width: 260px;
+  background-color: white;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 0;
+  position: fixed;
+  height: 100vh;
+  overflow-y: auto;
+  transition: transform 0.3s ease;
+  z-index: 1000;
+}
+
+.app-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.app-logo svg {
+  color: #f59e0b;
+}
+
+.app-sidebar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1rem;
+}
+
+/* Navigation */
+.app-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  margin-bottom: 2rem;
+}
+
+.app-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  color: #6b7280;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+}
+
+.app-nav-item:hover {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+.app-nav-item--active {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+
+.app-nav-item--active svg {
+  color: #2563eb;
+}
+
+/* Sidebar Footer */
+.app-sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+  margin-top: auto;
+}
+
+.app-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.app-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: #2563eb;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.app-user-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-user-email {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-user-role {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Main Content */
+.app-main {
+  flex: 1;
+  margin-left: 260px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.app-header {
+  background-color: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.app-header-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: #1f2937;
+  cursor: pointer;
+  padding: 0;
+}
+
+.app-header-title {
+  flex: 1;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.app-header-logout {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.app-header-logout:hover {
+  background-color: #f3f4f6;
+  color: #dc2626;
+}
+
+/* Connection Status */
+.app-header-status {
+  display: flex;
+  align-items: center;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.connection-status.connected {
+  color: #10b981;
+  background-color: #d1fae5;
+}
+
+.connection-status.disconnected {
+  color: #ef4444;
+  background-color: #fee2e2;
+  animation: pulse-status 2s infinite;
+}
+
+@keyframes pulse-status {
+
+  0%,
+  100% {
+    opacity: 1;
   }
 
-  .app-content {
-    padding: 1rem;
+  50% {
+    opacity: 0.6;
   }
 }
 
+/* Content Area */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Mobile Styles */
 @media (max-width: 768px) {
-  .app-shell {
-    flex-direction: column;
+  .app-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    transform: translateX(-100%);
+    border-right: none;
+    border-bottom: none;
   }
 
-  .app-sidebar {
-    width: 100%;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
+  .app-sidebar--open {
+    transform: translateX(0);
+  }
+
+  .app-main {
+    margin-left: 0;
+  }
+
+  .app-header-toggle {
+    display: flex;
+  }
+
+  .app-sidebar-toggle {
+    display: flex;
   }
 
   .app-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.35rem;
+    gap: 0.25rem;
   }
 
   .app-nav-item {
-    padding: 0.35rem 0.6rem;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
+    padding: 0.625rem 0.75rem;
+  }
+
+  .app-header {
+    padding: 1rem;
+  }
+
+  .app-header-title {
+    font-size: 1rem;
   }
 }
 
+/* Scrollbar Styling */
+.app-sidebar::-webkit-scrollbar,
+.app-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-sidebar::-webkit-scrollbar-track,
+.app-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb,
+.app-content::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb:hover,
+.app-content::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
