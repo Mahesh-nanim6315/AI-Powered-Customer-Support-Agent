@@ -3,7 +3,6 @@ import http from "http";
 import { Server } from "socket.io";
 import app from "./app";
 import { verifyToken } from "./utils/jwt";
-import knowledgeRoutes from "./routes/knowledge.routes";
 
 const server = http.createServer(app);
 
@@ -43,8 +42,6 @@ io.on("connection", (socket: any) => {
 });
 
 export { io };
-
-app.use("/knowledge", knowledgeRoutes);
 
 const PORT = 5000;
 

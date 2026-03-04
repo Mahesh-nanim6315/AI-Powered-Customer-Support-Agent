@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../../config/database";
 
 /*
   Escalation Tool
@@ -24,7 +22,7 @@ export async function escalateToHumanTool({
         await prisma.ticket.update({
             where: { id: ticketId },
             data: {
-                status: "ESCALATED",
+                status: "WAITING_FOR_HUMAN",
             },
         });
 
@@ -32,8 +30,8 @@ export async function escalateToHumanTool({
         await prisma.ticketMessage.create({
             data: {
                 ticketId,
-                sender: "SYSTEM",
-                content: `⚠️ This ticket has been escalated to a human agent. Reason: ${reason}`,
+                role: "AI",
+                content: `Escalated to a human agent. Reason: ${reason}`,
             },
         });
 

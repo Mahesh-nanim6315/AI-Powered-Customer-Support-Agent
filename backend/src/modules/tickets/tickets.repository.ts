@@ -30,9 +30,16 @@ export class TicketRepository {
   }
 
   static async updateStatus(id: string, orgId: string, status: any) {
-    return prisma.ticket.update({
-      where: { id },
-      data: { status }
+    const updated = await prisma.ticket.updateMany({
+      where: { id, orgId },
+      data: { status },
+    });
+
+    if (updated.count === 0) return null;
+
+    return prisma.ticket.findFirst({
+      where: { id, orgId },
+      include: { messages: true, customer: true },
     });
   }
 }

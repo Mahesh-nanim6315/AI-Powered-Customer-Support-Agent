@@ -45,6 +45,9 @@ export class TicketService {
 
   static async updateTicketStatus(id: string, orgId: string, status: any) {
     const ticket = await TicketRepository.updateStatus(id, orgId, status);
+    if (!ticket) {
+      throw new Error("Ticket not found");
+    }
     io.to(`org-${orgId}`).emit("ticket-updated", ticket);
     return ticket;
   }

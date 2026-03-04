@@ -8,56 +8,68 @@ datasource db {
 }
 
 model Organization {
-  id               String   @id @default(uuid())
+  id               String          @id @default(uuid())
   name             String
-  subscriptionTier String   @default("FREE")
+  subscriptionTier String          @default("FREE")
+  aiEnabled        Boolean         @default(true)
   users            User[]
   customers        Customer[]
   tickets          Ticket[]
-  createdAt        DateTime @default(now())
+  knowledgeBase    KnowledgeBase[]
+  createdAt        DateTime        @default(now())
+  aiSuggestions    AiSuggestion[]
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        String       @id @default(uuid())
   orgId     String
-  email     String   @unique
+  email     String       @unique
   password  String
   role      Role
   agent     Agent?
   org       Organization @relation(fields: [orgId], references: [id])
-  createdAt DateTime @default(now())
-}
-
-model Customer {
-  id        String   @id @default(uuid())
-  orgId     String
-  email     String
-  name      String
-  org       Organization @relation(fields: [orgId], references: [id])
+  createdAt DateTime     @default(now())
   tickets   Ticket[]
 }
 
+model Customer {
+  id        String       @id @default(uuid())
+  orgId     String
+  email     String
+  name      String
+  metadata  Json?
+  org       Organization @relation(fields: [orgId], references: [id])
+  tickets   Ticket[]
+  createdAt DateTime     @default(now())
+}
+
 model Ticket {
-  id         String   @id @default(uuid())
-  userId    String
-  orgId      String
-  customerId String
-  status     TicketStatus @default(OPEN)
-  priority   Priority     @default(MEDIUM)
-  subject    String
-  messages   TicketMessage[]
-    refunds   Refund[]
+  id              String          @id @default(uuid())
+  createdByUserId String?
+  orgId           String
+  customerId      String
+  status          TicketStatus    @default(OPEN)
+  priority        Priority        @default(MEDIUM)
+  subject         String
+  description     String?
+  messages        TicketMessage[]
+  refunds         Refund[]
 
   assignedAgentId String?
-  assignedAgent   Agent?   @relation(fields: [assignedAgentId], references: [id])
-  org        Organization @relation(fields: [orgId], references: [id])
-  customer   Customer     @relation(fields: [customerId], references: [id])
-  createdAt  DateTime     @default(now())
+  assignedAgent   Agent?           @relation(fields: [assignedAgentId], references: [id])
+  org             Organization     @relation(fields: [orgId], references: [id])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  createdByUser   User?            @relation(fields: [createdByUserId], references: [id])
+  analytics       TicketAnalytics?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  aiSuggestions   AiSuggestion[]
 }
 
 enum Role {
   ADMIN
   AGENT
+  CUSTOMER
 }
 
 enum TicketStatus {
@@ -75,14 +87,14 @@ enum Priority {
 }
 
 model TicketMessage {
-  id        String   @id @default(uuid())
+  id        String      @id @default(uuid())
   ticketId  String
   senderId  String?
   role      MessageRole
   content   String
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
 
-  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  ticket Ticket @relation(fields: [ticketId], references: [id])
 }
 
 enum MessageRole {
@@ -91,16 +103,15 @@ enum MessageRole {
   AI
 }
 
-
 model Agent {
-  id             String   @id @default(uuid())
-  userId         String   @unique
-  specialization String?
-  busyStatus     Boolean  @default(false)
-  activeTickets  Int      @default(0)
-  lastAssignedAt DateTime?
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  specialization  String?
+  busyStatus      Boolean   @default(false)
+  activeTickets   Int       @default(0)
+  lastAssignedAt  DateTime?
   assignedTickets Ticket[]
-  user           User     @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id])
 }
 
 model AgentLog {
@@ -112,10 +123,51 @@ model AgentLog {
 
 model Refund {
   id        String   @id @default(uuid())
-  userId    String
   ticketId  String
   amount    Float
   token     String   @unique
   status    String   @default("PENDING")
   createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+}
+
+model TicketAnalytics {
+  id             String   @id @default(uuid())
+  ticketId       String   @unique
+  sentimentScore Float?
+  createdAt      DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+}
+
+model KnowledgeBase {
+  id        String   @id @default(uuid())
+  orgId     String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+}
+
+model AiSuggestion {
+  id         String           @id @default(uuid())
+  orgId      String
+  ticketId   String
+  actionType String
+  params     Json
+  status     SuggestionStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  decidedAt  DateTime?
+
+  org    Organization @relation(fields: [orgId], references: [id])
+  ticket Ticket       @relation(fields: [ticketId], references: [id])
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
 }

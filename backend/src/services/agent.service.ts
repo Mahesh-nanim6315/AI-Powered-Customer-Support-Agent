@@ -1,15 +1,15 @@
 import { generateGeminiResponse } from "../ai/gemini.service";
 import {
   searchKnowledge,
-  escalateTicket,
-  changePriority,
 } from "../ai/tools/tools.service";
 import { analyzeSentiment } from "../ai/sentiment.service";
+import { AiSuggestionsService } from "../modules/ai-suggestions/aiSuggestions.service";
 
 export async function runAgent(
   message: string,
   orgId: string,
-  ticketId: string
+  ticketId: string,
+  io?: { to: (room: string) => { emit: (event: string, payload: any) => void } }
 ) {
   const maxSteps = 3;
   let scratchpad = "";
@@ -17,13 +17,25 @@ export async function runAgent(
 
   const sentiment = await analyzeSentiment(message);
 
-  // Apply deterministic safeguards before tool-loop reasoning.
+  // Human-in-the-loop: propose sensitive actions instead of executing directly.
   if (sentiment.priorityScore >= 8) {
-    await changePriority(ticketId, "HIGH");
+    const suggestion = await AiSuggestionsService.propose({
+      orgId,
+      ticketId,
+      actionType: "CHANGE_PRIORITY",
+      params: { priority: "HIGH", reason: "High urgency detected" },
+    });
+    io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
   }
 
   if (sentiment.sentiment === "ANGRY" || sentiment.sentiment === "URGENT") {
-    await escalateTicket(ticketId);
+    const suggestion = await AiSuggestionsService.propose({
+      orgId,
+      ticketId,
+      actionType: "ESCALATE_TO_HUMAN",
+      params: { reason: `Sentiment: ${sentiment.sentiment}` },
+    });
+    io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
   }
 
   for (let step = 0; step < maxSteps; step++) {
@@ -75,11 +87,23 @@ Respond ONLY in this JSON format:
       const result = await searchKnowledge(message, orgId);
       scratchpad += `Observation: ${result}\n`;
     } else if (parsed.action === "ESCALATE") {
-      await escalateTicket(ticketId);
-      scratchpad += "Observation: Ticket escalated.\n";
+      const suggestion = await AiSuggestionsService.propose({
+        orgId,
+        ticketId,
+        actionType: "ESCALATE_TO_HUMAN",
+        params: { reason: parsed.input ?? "AI requested escalation" },
+      });
+      scratchpad += `Observation: Escalation proposed (${suggestion.id}).\n`;
+      io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
     } else if (parsed.action === "CHANGE_PRIORITY") {
-      await changePriority(ticketId, "HIGH");
-      scratchpad += "Observation: Priority changed to HIGH.\n";
+      const suggestion = await AiSuggestionsService.propose({
+        orgId,
+        ticketId,
+        actionType: "CHANGE_PRIORITY",
+        params: { priority: "HIGH", reason: parsed.input ?? "AI requested priority change" },
+      });
+      scratchpad += `Observation: Priority change proposed (${suggestion.id}).\n`;
+      io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
     } else if (parsed.action === "FINAL_ANSWER") {
       finalAnswer = parsed.input ?? "";
       break;

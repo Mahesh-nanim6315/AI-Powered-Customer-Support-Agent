@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../../config/database";
 
 /*
   Tool: Update Ticket Status
@@ -14,7 +12,7 @@ const prisma = new PrismaClient();
 
 interface UpdateTicketStatusInput {
     ticketId: string;
-    status: "OPEN" | "RESOLVED" | "CLOSED" | "ON_HOLD" | "ESCALATED";
+    status: "OPEN" | "AI_HANDLING" | "WAITING_FOR_HUMAN" | "RESOLVED" | "CLOSED";
     note?: string;
 }
 
@@ -34,7 +32,7 @@ export async function updateTicketStatusTool({
         await prisma.ticketMessage.create({
             data: {
                 ticketId,
-                sender: "SYSTEM",
+                role: "AI",
                 content: `📌 Ticket status updated to "${status}"${note ? `.\nNote: ${note}` : "."
                     }`,
             },

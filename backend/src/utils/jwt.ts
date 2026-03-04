@@ -1,11 +1,24 @@
 import jwt from "jsonwebtoken";
 
-const SECRET = process.env.JWT_SECRET || "secret";
+const JWT_SECRET: jwt.Secret =
+  process.env.JWT_SECRET ?? process.env.JWT_SECRET_KEY ?? "supersecret";
+const JWT_EXPIRES = (process.env.JWT_EXPIRES ?? "7d") as jwt.SignOptions["expiresIn"];
 
-export function generateToken(payload: any) {
-    return jwt.sign(payload, SECRET, { expiresIn: "7d" });
+export interface JwtPayload {
+  userId: string;
+  role: string;
+  orgId: string;
 }
 
-export function verifyToken(token: string) {
-    return jwt.verify(token, SECRET);
-}
+export const signToken = (payload: JwtPayload): string => {
+  return jwt.sign(payload, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES,
+  });
+};
+
+// Backwards-compatible alias used across the codebase
+export const generateToken = signToken;
+
+export const verifyToken = (token: string): JwtPayload => {
+  return jwt.verify(token, JWT_SECRET) as JwtPayload;
+};

@@ -1,7 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 
-const prisma = new PrismaClient();
+import prisma from "../../config/database";
 
 /*
   Tool: Send Refund Link
@@ -13,13 +12,11 @@ const prisma = new PrismaClient();
 
 interface SendRefundLinkInput {
     ticketId: string;
-    userId: string;
     amount: number;
 }
 
 export async function sendRefundLinkTool({
     ticketId,
-    userId,
     amount,
 }: SendRefundLinkInput) {
     try {
@@ -29,7 +26,6 @@ export async function sendRefundLinkTool({
         // 2️⃣ Create refund record (optional table but recommended)
         await prisma.refund.create({
             data: {
-                userId,
                 ticketId,
                 amount,
                 token,
@@ -44,7 +40,7 @@ export async function sendRefundLinkTool({
         await prisma.ticketMessage.create({
             data: {
                 ticketId,
-                sender: "AI",
+                role: "AI",
                 content: `💰 You are eligible for a refund of ₹${amount}.
         
 Please use the secure link below to process your refund:

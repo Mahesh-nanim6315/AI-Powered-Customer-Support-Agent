@@ -1,0 +1,37 @@
+export {};
+
+declare global {
+  type TicketStatus =
+    | "OPEN"
+    | "IN_PROGRESS"
+    | "RESOLVED"
+    | "ESCALATED";
+
+  type TicketPriority =
+    | "LOW"
+    | "MEDIUM"
+    | "HIGH"
+    | "URGENT";
+
+  type RoleType =
+    | "CUSTOMER"
+    | "AGENT"
+    | "SENIOR"
+    | "ADMIN";
+
+  interface AIMessage {
+    role: "system" | "user" | "assistant";
+    content: string;
+  }
+
+  interface ToolDefinition {
+    name: string;
+    description: string;
+    parameters: any;
+  }
+
+  interface SentimentResult {
+    score: number; // -1 to 1
+    label: "positive" | "neutral" | "negative";
+  }
+}

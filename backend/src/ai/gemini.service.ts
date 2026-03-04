@@ -2,15 +2,27 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 export async function generateGeminiResponse(prompt: string) {
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-  });
+  if (!genAI) {
+    return "AI is currently unavailable (missing GEMINI_API_KEY).";
+  }
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
+  const modelName =
+    process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
 
-  return response.text();
+  try {
+    const model = genAI.getGenerativeModel({ model: modelName });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (err: any) {
+    // Don't crash the API flow if the external model is unavailable.
+    // Log for operators, return a safe message for customers.
+    // eslint-disable-next-line no-console
+    console.error("Gemini generateContent failed:", err?.message || err);
+    return "I’m having trouble accessing our AI assistant right now. A human agent will help you shortly.";
+  }
 }

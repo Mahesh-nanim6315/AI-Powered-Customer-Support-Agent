@@ -12,19 +12,19 @@ const prisma = new PrismaClient();
 */
 
 interface GetCustomerHistoryInput {
-    userId: string;
-    limit?: number;
+  customerId: string;
+  limit?: number;
 }
 
 export async function getCustomerHistoryTool({
-    userId,
-    limit = 5,
+  customerId,
+  limit = 5,
 }: GetCustomerHistoryInput) {
     try {
         // 1️⃣ Fetch recent tickets of the user
         const tickets = await prisma.ticket.findMany({
             where: {
-                userId,
+                customerId,
             },
             orderBy: {
                 createdAt: "desc",
@@ -51,8 +51,9 @@ export async function getCustomerHistoryTool({
             status: ticket.status,
             createdAt: ticket.createdAt,
             messages: ticket.messages.map((m) => ({
-                sender: m.sender,
-                content: m.content,
+              role: m.role,
+              content: m.content,
+              createdAt: m.createdAt,
             })),
         }));
 

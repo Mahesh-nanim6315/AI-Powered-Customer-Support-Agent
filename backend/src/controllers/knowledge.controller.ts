@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import { Pinecone } from "@pinecone-database/pinecone";
-import { PDFParse } from "pdf-parse";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import { generateEmbedding } from "../ai/embedding.service";
@@ -16,6 +15,7 @@ const multer = require("multer") as {
 };
 
 const upload = multer({ dest: "uploads/" });
+const pdfParse = require("pdf-parse") as (data: Buffer) => Promise<{ text: string }>;
 
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
@@ -41,9 +41,8 @@ export const uploadKnowledge = async (req: UploadRequest, res: Response) => {
     tempFilePath = req.file.path;
     const fileBuffer = fs.readFileSync(tempFilePath);
 
-    const parser = new PDFParse({ data: fileBuffer });
-    const data = await parser.getText();
-    const fullText = data.text;
+    const parsed = await pdfParse(fileBuffer);
+    const fullText = parsed.text ?? "";
     const chunks = chunkText(fullText, 500);
 
     for (const chunk of chunks) {

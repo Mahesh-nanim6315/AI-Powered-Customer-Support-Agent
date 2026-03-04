@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "../config/db";
 
 /*
   Analytics Service
@@ -25,7 +23,7 @@ export class AnalyticsService {
         });
 
         const escalated = await prisma.ticket.count({
-            where: { orgId, status: "ESCALATED" },
+            where: { orgId, status: "WAITING_FOR_HUMAN" },
         });
 
         return {
@@ -43,14 +41,14 @@ export class AnalyticsService {
         const aiMessages = await prisma.ticketMessage.count({
             where: {
                 ticket: { orgId },
-                sender: "AI",
+                role: "AI",
             },
         });
 
         const humanMessages = await prisma.ticketMessage.count({
             where: {
                 ticket: { orgId },
-                sender: "HUMAN",
+                role: "AGENT",
             },
         });
 

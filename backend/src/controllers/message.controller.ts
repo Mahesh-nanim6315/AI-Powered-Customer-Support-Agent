@@ -29,7 +29,8 @@ export const sendMessage = async (req: Request, res: Response) => {
       },
     });
 
-    const aiReply = await runAgent(content, orgId, ticketId);
+    const io = req.app.get("io");
+    const aiReply = await runAgent(content, orgId, ticketId, io);
 
     const aiMessage = await prisma.ticketMessage.create({
       data: {
@@ -39,7 +40,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       },
     });
 
-    req.app.get("io").to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
+    io.to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
 
     return res.json({
       success: true,

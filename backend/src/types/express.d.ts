@@ -1,17 +1,18 @@
-export {};
+import { Server as SocketIOServer } from "socket.io";
 
 declare global {
   namespace Express {
     interface UserPayload {
-      id?: string;
-      userId?: string;
-      orgId?: string;
-      role?: string;
-      email?: string;
+      userId: string;
+      orgId: string;
+      role: string;
     }
 
     interface Request {
       user?: UserPayload;
+      io?: SocketIOServer;
     }
   }
 }
+
+export {};
