@@ -3,12 +3,9 @@ import http from "http";
 import { Server } from "socket.io";
 import app from "./app";
 import { verifyToken } from "./utils/jwt";
-import { uploadMiddleware, uploadKnowledge } from "../controllers/knowledge.controller";
-
+import knowledgeRoutes from "./routes/knowledge.routes";
 
 const server = http.createServer(app);
-
-app.set("io", io);
 
 const io = new Server(server, {
   cors: {
@@ -16,7 +13,9 @@ const io = new Server(server, {
   }
 });
 
-// 🔐 Socket Authentication Middleware
+app.set("io", io);
+
+// Socket authentication middleware
 io.use((socket: any, next) => {
   try {
     const token = socket.handshake.auth.token;

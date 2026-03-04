@@ -1,40 +1,53 @@
-// src/controllers/message.controller.ts
-
 import { Request, Response } from "express";
-import prisma from "../lib/prisma";
-import { runRAG } from "../services/rag.service";
+import prisma from "../config/database";
+import { runAgent } from "../services/agent.service";
 
 export const sendMessage = async (req: Request, res: Response) => {
-  const { ticketId } = req.params;
-  const { content } = req.body;
+  try {
+    const rawTicketId = req.params.ticketId ?? req.params.id;
+    const ticketId = Array.isArray(rawTicketId) ? rawTicketId[0] : rawTicketId;
+    const { content } = req.body as { content?: string };
 
-  // 1️⃣ Save user message
-  const userMessage = await prisma.ticketMessage.create({
-    data: {
-      ticketId,
-      sender: "USER",
-      content,
-    },
-  });
+    if (!ticketId) {
+      return res.status(400).json({ error: "ticketId is required" });
+    }
 
-  // 2️⃣ Run AI Brain
-  const aiReply = await runRAG(content);
+    if (!content?.trim()) {
+      return res.status(400).json({ error: "content is required" });
+    }
 
-  // 3️⃣ Save AI message
-  const aiMessage = await prisma.ticketMessage.create({
-    data: {
-      ticketId,
-      sender: "AI",
-      content: aiReply,
-    },
-  });
+    const orgId = req.user?.orgId;
+    if (!orgId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
-  // 4️⃣ Emit real-time
-  req.app.get("io").to(ticketId).emit("newMessage", aiMessage);
+    const userMessage = await prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        role: "CUSTOMER",
+        content,
+      },
+    });
 
-  return res.json({
-    success: true,
-    userMessage,
-    aiMessage,
-  });
+    const aiReply = await runAgent(content, orgId, ticketId);
+
+    const aiMessage = await prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        role: "AI",
+        content: aiReply,
+      },
+    });
+
+    req.app.get("io").to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
+
+    return res.json({
+      success: true,
+      userMessage,
+      aiMessage,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to process message" });
+  }
 };

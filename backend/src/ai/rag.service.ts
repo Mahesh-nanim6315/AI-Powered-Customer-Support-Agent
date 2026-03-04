@@ -1,16 +1,14 @@
-// src/services/rag.service.ts
-
 import { generateEmbedding } from "../ai/embedding.service";
 import { searchSimilar } from "../ai/vector.service";
 import { generateGeminiResponse } from "../ai/gemini.service";
 
-export async function runRAG(message: string) {
+export async function runRAG(message: string, orgId: string) {
   const embedding = await generateEmbedding(message);
-
-  const matches = await searchSimilar(embedding);
+  const matches = await searchSimilar(embedding, orgId);
 
   const context = matches
     .map((m: any) => m.metadata?.text)
+    .filter(Boolean)
     .join("\n");
 
   const prompt = `

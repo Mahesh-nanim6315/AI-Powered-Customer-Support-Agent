@@ -1,10 +1,19 @@
 import { Request, Response } from "express";
-import multer from "multer";
-import pdfParse from "pdf-parse";
-import { v4 as uuidv4 } from "uuid";
-import { generateEmbedding } from "../ai/embedding.service";
 import { Pinecone } from "@pinecone-database/pinecone";
+import { PDFParse } from "pdf-parse";
+import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
+import { generateEmbedding } from "../ai/embedding.service";
+
+type UploadRequest = Request & {
+  file?: {
+    path: string;
+  };
+};
+
+const multer = require("multer") as {
+  (options: { dest: string }): { single: (fieldName: string) => any };
+};
 
 const upload = multer({ dest: "uploads/" });
 
@@ -16,37 +25,43 @@ const index = pinecone.index("support-index");
 
 export const uploadMiddleware = upload.single("file");
 
-export const uploadKnowledge = async (req: Request, res: Response) => {
+export const uploadKnowledge = async (req: UploadRequest, res: Response) => {
+  let tempFilePath: string | undefined;
+
   try {
-    if (!req.file) {
+    const orgId = req.user?.orgId;
+    if (!orgId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!req.file?.path) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const fileBuffer = fs.readFileSync(req.file.path);
+    tempFilePath = req.file.path;
+    const fileBuffer = fs.readFileSync(tempFilePath);
 
-    // 1️⃣ Extract PDF text
-    const data = await pdfParse(fileBuffer);
+    const parser = new PDFParse({ data: fileBuffer });
+    const data = await parser.getText();
     const fullText = data.text;
-
-    // 2️⃣ Chunking (simple version)
     const chunks = chunkText(fullText, 500);
 
-    // 3️⃣ Embed + Store in Pinecone
     for (const chunk of chunks) {
       const embedding = await generateEmbedding(chunk);
 
-      await index.upsert([
-        {
-          id: uuidv4(),
-          values: embedding,
-          metadata: {
-            text: chunk,
+      await index.upsert({
+        records: [
+          {
+            id: uuidv4(),
+            values: embedding,
+            metadata: {
+              text: chunk,
+              orgId,
+            },
           },
-        },
-      ]);
+        ],
+      });
     }
-
-    fs.unlinkSync(req.file.path); // delete temp file
 
     return res.json({
       success: true,
@@ -55,13 +70,16 @@ export const uploadKnowledge = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Upload failed" });
+  } finally {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
   }
 };
 
-// 🔥 Basic chunking
-function chunkText(text: string, size: number) {
+function chunkText(text: string, size: number): string[] {
   const words = text.split(" ");
-  const chunks = [];
+  const chunks: string[] = [];
 
   for (let i = 0; i < words.length; i += size) {
     chunks.push(words.slice(i, i + size).join(" "));

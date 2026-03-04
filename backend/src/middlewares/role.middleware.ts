@@ -1,8 +1,11 @@
+import { Request, Response, NextFunction } from "express";
+
 export function allowRoles(...roles: string[]) {
-    return (req: any, res: any, next: any) => {
-        if (!roles.includes(req.user.role)) {
-            return res.status(403).json({ message: "Forbidden" });
-        }
-        next();
-    };
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user?.role || !roles.includes(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    next();
+  };
 }
