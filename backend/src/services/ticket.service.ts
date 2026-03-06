@@ -1,5 +1,6 @@
 import { prisma } from "../config/db";
 import { AssignmentService } from "./assignment.service";
+import { addAIJob } from "../queues/bullmq";
 
 export class TicketService {
   /**
@@ -23,8 +24,64 @@ export class TicketService {
         },
       });
 
+      console.log("✅ Ticket created:", { ticketId: ticket.id, subject: ticket.subject });
+
       // Auto-assign after creation
       await AssignmentService.assignTicket(ticket.id, data.orgId);
+
+      // Trigger AI processing for new tickets
+      await prisma.ticket.update({
+        where: { id: ticket.id },
+        data: { status: "AI_HANDLING" },
+      });
+
+      console.log("✅ Ticket status updated to AI_HANDLING");
+
+      // For now, process AI synchronously until Redis is configured
+      try {
+        console.log("🤖 Starting AI processing...");
+        const { runAgent } = await import("../services/agent.service");
+        const aiReply = await runAgent(data.description || data.subject, data.orgId, ticket.id);
+
+        console.log("✅ AI response generated:", { length: aiReply.length });
+
+        // Save AI response
+        const aiMessage = await prisma.ticketMessage.create({
+          data: {
+            ticketId: ticket.id,
+            role: "AI",
+            content: aiReply,
+          },
+        });
+
+        // Update ticket status
+        await prisma.ticket.update({
+          where: { id: ticket.id },
+          data: { status: "WAITING_FOR_HUMAN" },
+        });
+
+        console.log("✅ Ticket updated with AI response, status: WAITING_FOR_HUMAN");
+
+        // Emit real-time updates
+        try {
+          const { getIO } = await import("../config/socket");
+          const io = getIO();
+          io.to(`ticket-${ticket.id}`).emit("newMessage", aiMessage);
+          io.to(`org-${data.orgId}`).emit("ticketUpdated", { ticketId: ticket.id, status: "WAITING_FOR_HUMAN" });
+          console.log("✅ Real-time updates emitted");
+        } catch (socketError) {
+          console.warn("⚠️ Failed to emit Socket.io event:", socketError.message);
+        }
+
+      } catch (aiError) {
+        console.error("❌ AI processing failed:", aiError.message);
+        // Fallback: just update status to waiting for human
+        await prisma.ticket.update({
+          where: { id: ticket.id },
+          data: { status: "WAITING_FOR_HUMAN" },
+        });
+        console.log("✅ Fallback: Ticket updated to WAITING_FOR_HUMAN");
+      }
 
       return ticket;
     } catch (error: any) {

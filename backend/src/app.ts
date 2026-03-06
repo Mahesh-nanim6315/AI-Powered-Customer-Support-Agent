@@ -6,6 +6,7 @@ import agentRoutes from "./modules/agents/agents.routes";
 import knowledgeRoutes from "./routes/knowledge.routes";
 import customersRoutes from "./modules/customers/customers.routes";
 import aiSuggestionsRoutes from "./modules/ai-suggestions/aiSuggestions.routes";
+import analyticsRoutes from "./modules/analytics/analytics.routes";
 
 
 const app = express();
@@ -19,5 +20,6 @@ app.use("/agents", agentRoutes);
 app.use("/customers", customersRoutes);
 app.use("/knowledge", knowledgeRoutes);
 app.use("/ai/suggestions", aiSuggestionsRoutes);
+app.use("/analytics", analyticsRoutes);
 
 export default app;

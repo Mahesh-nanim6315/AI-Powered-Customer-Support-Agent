@@ -22,13 +22,13 @@ export function initSocket(server: HTTPServer) {
 
         // Join specific ticket room
         socket.on("joinTicket", (ticketId: string) => {
-            socket.join(ticketId);
+            socket.join(`ticket-${ticketId}`);
             console.log(`Socket ${socket.id} joined ticket ${ticketId}`);
         });
 
         // Leave ticket room
         socket.on("leaveTicket", (ticketId: string) => {
-            socket.leave(ticketId);
+            socket.leave(`ticket-${ticketId}`);
             console.log(`Socket ${socket.id} left ticket ${ticketId}`);
         });
 
@@ -38,6 +38,10 @@ export function initSocket(server: HTTPServer) {
     });
 
     return io;
+}
+
+export function setIO(instance: Server) {
+    io = instance;
 }
 
 export function getIO() {

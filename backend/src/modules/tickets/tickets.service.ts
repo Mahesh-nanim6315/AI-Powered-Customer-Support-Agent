@@ -8,25 +8,28 @@ export class TicketService {
 
   static async createTicket(orgId: string, data: any) {
 
-  const assignedAgent = await AgentService.assignAgent(orgId);
+    const assignedAgent = await AgentService.assignAgent(orgId);
 
-  const ticket = await TicketRepository.create({
-    orgId,
-    customerId: data.customerId,
-    subject: data.subject,
-    assignedAgentId: assignedAgent?.id,
-    messages: {
-      create: {
-        role: "CUSTOMER",
-        content: data.content
+    const ticket = await TicketRepository.create({
+      orgId,
+      customerId: data.customerId,
+      createdByUserId: data.createdByUserId, // Track who created the ticket
+      subject: data.subject,
+      description: data.description,
+      priority: data.priority,
+      assignedAgentId: assignedAgent?.id,
+      messages: {
+        create: {
+          role: "CUSTOMER",
+          content: data.description || "No description provided"
+        }
       }
-    }
-  });
+    });
 
-  io.to(`org-${orgId}`).emit("ticket-created", ticket);
+    io.to(`org-${orgId}`).emit("ticket-created", ticket);
 
-  return ticket;
-}
+    return ticket;
+  }
 
 
   static async getTickets(orgId: string) {
@@ -54,17 +57,17 @@ export class TicketService {
 
   static async addMessage(ticketId: string, orgId: string, role: any, content: string) {
 
-  const message = await prisma.ticketMessage.create({
-    data: {
-      ticketId,
-      role,
-      content
-    }
-  });
+    const message = await prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        role,
+        content
+      }
+    });
 
-  io.to(`ticket-${ticketId}`).emit("message-added", message);
+    io.to(`ticket-${ticketId}`).emit("message-added", message);
 
-  return message;
-}
+    return message;
+  }
 
 }   

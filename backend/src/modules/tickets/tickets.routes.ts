@@ -8,10 +8,10 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.post("/", allowRoles("ADMIN", "AGENT"), TicketController.create);
-router.get("/", allowRoles("ADMIN", "AGENT"), TicketController.getAll);
-router.get("/:id", allowRoles("ADMIN", "AGENT"), TicketController.getById);
+router.post("/", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.create);
+router.get("/", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getAll);
+router.get("/:id", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getById);
 router.patch("/:id/status", allowRoles("ADMIN"), TicketController.updateStatus);
-router.post("/:id/messages", allowRoles("ADMIN", "AGENT"), sendMessage);
+router.post("/:id/messages", allowRoles("ADMIN", "AGENT", "CUSTOMER"), sendMessage);
 
 export default router;

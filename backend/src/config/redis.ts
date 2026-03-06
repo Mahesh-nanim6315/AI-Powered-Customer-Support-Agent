@@ -6,22 +6,50 @@ import { logger } from "../utils/logger";
  * - BullMQ workers
  * - Caching
  * - Rate limiting
- * - Future session storage
+ * - Session storage
  */
 
-export const redisConnectionOptions = {
-  host: process.env.REDIS_HOST || "127.0.0.1",
-  port: Number(process.env.REDIS_PORT) || 6379,
-  maxRetriesPerRequest: null as null, // Required for BullMQ
-};
+let redisConnection: IORedis;
 
-// Useful for non-BullMQ Redis usage (caching, etc.)
-export const redisConnection = new IORedis(redisConnectionOptions);
+if (process.env.REDIS_URL) {
+  // For Upstash / Cloud Redis
+  redisConnection = new IORedis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null,
+    tls: {
+      rejectUnauthorized: false, // For Upstash
+    },
+  });
+} else {
+  // For Local Redis
+  redisConnection = new IORedis({
+    host: process.env.REDIS_HOST || "127.0.0.1",
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD,
+    maxRetriesPerRequest: null,
+  });
+}
 
 redisConnection.on("connect", () => {
-  logger.info("Redis connected successfully");
+  logger.info("✅ Redis connected successfully");
 });
 
 redisConnection.on("error", (err) => {
-  logger.error("Redis connection error", err);
+  logger.error("❌ Redis connection error", err);
 });
+
+export { redisConnection };
+
+export const redisConnectionOptions = process.env.REDIS_URL
+  ? {
+    url: process.env.REDIS_URL,
+    maxRetriesPerRequest: null as null,
+    tls: {
+      rejectUnauthorized: false, // For Upstash
+    },
+  }
+  : {
+    host: process.env.REDIS_HOST || "127.0.0.1",
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD,
+    maxRetriesPerRequest: null as null, // Required for BullMQ
+  };

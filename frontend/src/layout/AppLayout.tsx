@@ -36,7 +36,7 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
       icon: MessageSquare,
       label: 'Tickets',
       path: '/tickets',
-      allowedRoles: ['ADMIN', 'AGENT'],
+      allowedRoles: ['ADMIN', 'AGENT', 'CUSTOMER'],
     },
     {
       icon: Users,

@@ -4,10 +4,14 @@ import { useCustomers } from '../hooks/useCustomers';
 import { useRealtime } from '../context/RealtimeContext';
 import { Card, Button, Input, Select, Badge, Spinner, Modal, TextArea, Alert } from '../components';
 import { ChevronRight, Plus, Zap, Search } from 'lucide-react';
-import type { Ticket, CreateTicketRequest, TicketStatus } from '../types';
+import type { Ticket, CreateTicketRequest, TicketStatus, AuthUser } from '../types';
 import '../page.css';
 
-export function TicketsPage() {
+interface TicketsPageProps {
+  user?: AuthUser | null;
+}
+
+export function TicketsPage({ user }: TicketsPageProps) {
   const ticketsQuery = useTickets();
   const customersQuery = useCustomers();
   const createTicketMutation = useCreateTicket();
@@ -29,6 +33,13 @@ export function TicketsPage() {
 
   const tickets = ticketsQuery.data || [];
   const customers = customersQuery.data || [];
+
+  // Auto-fill customer ID for CUSTOMER role users (they create tickets for themselves)
+  useEffect(() => {
+    if (user?.role === 'CUSTOMER' && user?.id && !createFormData.customerId) {
+      setCreateFormData((prev) => ({ ...prev, customerId: user.id }));
+    }
+  }, [user?.role, user?.id]);
 
   // Listen for real-time updates and refresh tickets
   useEffect(() => {
@@ -244,17 +255,26 @@ export function TicketsPage() {
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <Select
-            label="Customer *"
-            options={customers.map((c) => ({
-              value: c.id,
-              label: c.name,
-            }))}
-            value={createFormData.customerId}
-            onChange={(e) =>
-              setCreateFormData({ ...createFormData, customerId: e.target.value })
-            }
-          />
+          {user?.role === 'CUSTOMER' ? (
+            <Input
+              label="Customer"
+              value={user?.email || ''}
+              disabled
+              placeholder="Your account"
+            />
+          ) : (
+            <Select
+              label="Customer *"
+              options={customers.map((c) => ({
+                value: c.id,
+                label: c.name,
+              }))}
+              value={createFormData.customerId}
+              onChange={(e) =>
+                setCreateFormData({ ...createFormData, customerId: e.target.value })
+              }
+            />
+          )}
           <Input
             label="Subject *"
             placeholder="Brief description of the issue"

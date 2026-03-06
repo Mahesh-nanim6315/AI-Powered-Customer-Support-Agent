@@ -28,13 +28,20 @@ const queryClient = new QueryClient({
 function loadStoredUser(): AuthUser | null {
   try {
     const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return null;
+    console.log('📦 Stored user raw:', raw);
+    if (!raw) {
+      console.log('❌ No stored user found');
+      return null;
+    }
     const user = JSON.parse(raw) as AuthUser;
+    console.log('✅ Loaded user from localStorage:', user);
     if (user.token) {
       authService.setToken(user.token);
+      console.log('🔐 Token set in authService');
     }
     return user;
-  } catch {
+  } catch (error) {
+    console.error('❌ Error loading stored user:', error);
     return null;
   }
 }
@@ -45,21 +52,32 @@ function App() {
   const [isSignupMode, setIsSignupMode] = useState(false);
 
   useEffect(() => {
+    console.log('🚀 App initializing, loading stored user...');
     const storedUser = loadStoredUser();
+    console.log('📦 Setting user state to:', storedUser ? storedUser.email : 'null');
     setUser(storedUser);
     setBootstrapped(true);
   }, []);
 
   useEffect(() => {
+    // Only persist to localStorage AFTER bootstrap is complete
+    if (!bootstrapped) {
+      console.log('⏳ Skipping persist - still bootstrapping');
+      return;
+    }
+
     if (!user) {
+      console.log('❌ User is null after bootstrap, clearing localStorage');
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
       authService.clearToken();
       return;
     }
 
+    console.log('💾 Persisting user to localStorage:', user.email);
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     authService.setToken(user.token);
-  }, [user]);
+    console.log('✅ User persisted with token');
+  }, [user, bootstrapped]);
 
   if (!bootstrapped) {
     return (
@@ -109,7 +127,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/tickets" element={<TicketsPage />} />
+                <Route path="/tickets" element={<TicketsPage user={user} />} />
                 <Route path="/customers" element={<CustomersPage />} />
                 <Route path="/agents" element={<AgentsPage />} />
                 <Route path="/knowledge" element={<KnowledgePage />} />
