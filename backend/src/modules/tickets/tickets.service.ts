@@ -2,6 +2,7 @@ import { TicketRepository } from "./tickets.repository";
 import prisma from "../../config/database";
 import { AgentService } from "../agents/agents.service";
 import { io } from "../../server";
+import { addAIJob } from "../../queues/bullmq";
 
 
 export class TicketService {
@@ -28,7 +29,25 @@ export class TicketService {
 
     io.to(`org-${orgId}`).emit("ticket-created", ticket);
 
-    return ticket;
+    // Immediately move to AI handling and queue the first AI response.
+    const aiHandlingTicket = await TicketRepository.updateStatus(ticket.id, orgId, "AI_HANDLING");
+    if (aiHandlingTicket) {
+      io.to(`org-${orgId}`).emit("ticket-updated", aiHandlingTicket);
+    }
+
+    try {
+      await addAIJob({
+        ticketId: ticket.id,
+        orgId,
+        message: data.description || data.subject || "New ticket received",
+        isInitialProcessing: true,
+        delayMs: 12000,
+      });
+    } catch (queueError) {
+      console.error("Failed to enqueue AI job:", queueError);
+    }
+
+    return aiHandlingTicket || ticket;
   }
 
 

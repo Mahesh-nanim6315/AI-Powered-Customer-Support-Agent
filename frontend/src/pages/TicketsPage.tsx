@@ -60,6 +60,9 @@ export function TicketsPage({ user }: TicketsPageProps) {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
+  const canUpdateStatus = user?.role === 'ADMIN' || user?.role === 'AGENT';
+  const statusOptions: TicketStatus[] = ['OPEN', 'AI_HANDLING', 'WAITING_FOR_HUMAN', 'RESOLVED', 'CLOSED'];
+
   const handleCreateTicket = async () => {
     if (!createFormData.customerId || !createFormData.subject) {
       alert('Please fill in all required fields');
@@ -220,6 +223,31 @@ export function TicketsPage({ user }: TicketsPageProps) {
                       {ticket.priority}
                     </Badge>
                   </div>
+                  {canUpdateStatus && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <select
+                        value={ticket.status}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleStatusChange(ticket.id, e.target.value as TicketStatus);
+                        }}
+                        style={{
+                          padding: '0.35rem 0.5rem',
+                          borderRadius: '8px',
+                          border: '1px solid var(--color-border)',
+                          background: 'var(--color-surface)',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        {statusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {ticket.assignedAgent && (
                     <div className="ticket-agent">
                       Assigned to {ticket.assignedAgent.user?.email}
@@ -328,4 +356,3 @@ function MessageSquareOff({ size }: { size: number }) {
     </svg>
   );
 }
-

@@ -6,19 +6,15 @@ export const aiSuggestionsService = {
         return apiClient.get<AiSuggestion[]>('/ai/suggestions');
     },
 
-    async getById(id: string): Promise<AiSuggestion> {
-        return apiClient.get<AiSuggestion>(`/ai/suggestions/${id}`);
-    },
-
     async getByTicket(ticketId: string): Promise<AiSuggestion[]> {
         return apiClient.get<AiSuggestion[]>(`/ai/suggestions?ticketId=${ticketId}`);
     },
 
     async approve(id: string): Promise<AiSuggestion> {
-        return apiClient.patch<AiSuggestion>(`/ai/suggestions/${id}`, { status: 'APPROVED' });
+        return apiClient.post<AiSuggestion>(`/ai/suggestions/${id}/approve`, { execute: true });
     },
 
     async reject(id: string): Promise<AiSuggestion> {
-        return apiClient.patch<AiSuggestion>(`/ai/suggestions/${id}`, { status: 'REJECTED' });
+        return apiClient.post<AiSuggestion>(`/ai/suggestions/${id}/reject`);
     },
 };

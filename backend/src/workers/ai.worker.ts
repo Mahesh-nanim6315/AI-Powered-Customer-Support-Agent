@@ -40,7 +40,9 @@ const aiWorker = new Worker(
     try {
       const io = getIO();
       io.to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
+      io.to(`ticket-${ticketId}`).emit("message-added", aiMessage);
       io.to(`org-${orgId}`).emit("ticketUpdated", { ticketId, status: newStatus });
+      io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: newStatus });
     } catch (error) {
       logger.warn("Failed to emit Socket.io event", { error: error instanceof Error ? error.message : String(error) });
     }

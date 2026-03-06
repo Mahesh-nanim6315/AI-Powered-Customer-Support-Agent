@@ -7,10 +7,9 @@ function getOrgId(req: Request): string | null {
 }
 
 function canApprove(req: Request, actionType: string): boolean {
-  // Minimal safe policy: only ADMIN can approve/execute.
-  // You can later expand: allow AGENT for non-sensitive actions.
-  if (req.user?.role !== "ADMIN") return false;
-  return Boolean(actionType);
+  // ADMIN and AGENT can approve/reject suggestions.
+  if (!req.user?.role) return false;
+  return ["ADMIN", "AGENT"].includes(req.user.role) && Boolean(actionType);
 }
 
 export class AiSuggestionsController {
@@ -70,4 +69,3 @@ export class AiSuggestionsController {
     return res.json(rejected);
   }
 }
-

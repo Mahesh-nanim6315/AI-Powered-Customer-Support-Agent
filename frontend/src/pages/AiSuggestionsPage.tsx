@@ -1,11 +1,32 @@
-import { Card, Badge, Button, Spinner } from '../components';
+import { useEffect, useState } from 'react';
+import { Card, Badge, Button, Spinner, Alert } from '../components';
 import { Check, X, Clock } from 'lucide-react';
+import type { AiSuggestion } from '../types';
+import { aiSuggestionsService } from '../services/ai.service';
 import '../page.css';
 
 export function AiSuggestionsPage() {
-  // TODO: Hook up with aiSuggestions service
-  const suggestions: any[] = [];
-  const isLoading = false;
+  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmittingId, setIsSubmittingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadSuggestions = async () => {
+    try {
+      setError(null);
+      const data = await aiSuggestionsService.getAll();
+      setSuggestions(data);
+    } catch (e) {
+      console.error('Failed to load suggestions:', e);
+      setError('Failed to load AI suggestions');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSuggestions();
+  }, []);
 
   if (isLoading) {
     return (
@@ -16,13 +37,29 @@ export function AiSuggestionsPage() {
   }
 
   const handleApprove = async (id: string) => {
-    // TODO: Call approve endpoint
-    console.log('Approve suggestion:', id);
+    try {
+      setIsSubmittingId(id);
+      await aiSuggestionsService.approve(id);
+      await loadSuggestions();
+    } catch (e) {
+      console.error('Approve failed:', e);
+      setError('Failed to approve suggestion');
+    } finally {
+      setIsSubmittingId(null);
+    }
   };
 
   const handleReject = async (id: string) => {
-    // TODO: Call reject endpoint
-    console.log('Reject suggestion:', id);
+    try {
+      setIsSubmittingId(id);
+      await aiSuggestionsService.reject(id);
+      await loadSuggestions();
+    } catch (e) {
+      console.error('Reject failed:', e);
+      setError('Failed to reject suggestion');
+    } finally {
+      setIsSubmittingId(null);
+    }
   };
 
   const statusVariants: any = {
@@ -43,6 +80,12 @@ export function AiSuggestionsPage() {
         </div>
       </div>
 
+      {error && (
+        <Alert type="error" title="Error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
       {suggestions.length === 0 ? (
         <Card className="empty-card">
           <div className="empty-state">
@@ -53,7 +96,7 @@ export function AiSuggestionsPage() {
         </Card>
       ) : (
         <div className="suggestions-list">
-          {suggestions.map((suggestion: any) => (
+          {suggestions.map((suggestion) => (
             <Card key={suggestion.id} className="suggestion-card">
               <div className="suggestion-header">
                 <div>
@@ -71,6 +114,7 @@ export function AiSuggestionsPage() {
                     size="sm"
                     variant="secondary"
                     onClick={() => handleReject(suggestion.id)}
+                    disabled={isSubmittingId === suggestion.id}
                   >
                     <X size={16} />
                     Reject
@@ -78,6 +122,7 @@ export function AiSuggestionsPage() {
                   <Button
                     size="sm"
                     onClick={() => handleApprove(suggestion.id)}
+                    disabled={isSubmittingId === suggestion.id}
                   >
                     <Check size={16} />
                     Approve
@@ -95,4 +140,3 @@ export function AiSuggestionsPage() {
     </div>
   );
 }
-

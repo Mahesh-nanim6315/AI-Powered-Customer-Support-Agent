@@ -29,6 +29,7 @@ export const addAIJob = async (data: any) => {
       type: "exponential",
       delay: 1000,
     },
+    delay: data?.delayMs ?? 0,
     removeOnComplete: true,
   });
 };

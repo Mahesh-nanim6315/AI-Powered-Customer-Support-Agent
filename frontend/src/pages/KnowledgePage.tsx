@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Button, Input, TextArea, Spinner } from '../components';
 import { Plus } from 'lucide-react';
+import { knowledgeService } from '../services/knowledge.service';
+import type { KnowledgeBase } from '../types';
 import '../page.css';
 
 export function KnowledgePage() {
@@ -9,8 +11,24 @@ export function KnowledgePage() {
     title: '',
     content: '',
   });
-  const [articles, setArticles] = useState<any[]>([]);
+  const [articles, setArticles] = useState<KnowledgeBase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+
+  useEffect(() => {
+    const loadArticles = async () => {
+      try {
+        const data = await knowledgeService.getAll();
+        setArticles(data);
+      } catch (error) {
+        console.error('Failed to load articles:', error);
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    loadArticles();
+  }, []);
 
   const handleAddArticle = async () => {
     if (!formData.title || !formData.content) {
@@ -20,22 +38,26 @@ export function KnowledgePage() {
 
     setIsLoading(true);
     try {
-      // TODO: Call API to create knowledge article
-      const newArticle = {
-        id: Date.now().toString(),
-        title: formData.title,
-        content: formData.content,
-        createdAt: new Date().toISOString(),
-      };
-      setArticles([newArticle, ...articles]);
+      const newArticle = await knowledgeService.create(formData);
+      setArticles((prev) => [newArticle, ...prev]);
       setFormData({ title: '', content: '' });
       setIsAddingArticle(false);
+      alert('Knowledge article added successfully');
     } catch (error) {
       console.error('Failed to add article:', error);
+      alert('Failed to add article. Check API server and authentication.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isFetching) {
+    return (
+      <div className="page">
+        <Spinner fullScreen />
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -109,4 +131,3 @@ export function KnowledgePage() {
     </div>
   );
 }
-

@@ -46,6 +46,29 @@ export class TicketController {
   static async getAll(req: any, res: Response) {
     let tickets = await TicketService.getTickets(req.user.orgId);
 
+    // If user is AGENT, only show assigned tickets
+    if (req.user.role === "AGENT") {
+      const prisma = require("../../config/database").default;
+      tickets = await prisma.ticket.findMany({
+        where: {
+          orgId: req.user.orgId,
+          assignedAgent: {
+            userId: req.user.id
+          }
+        },
+        include: {
+          customer: true,
+          assignedAgent: {
+            include: {
+              user: true
+            }
+          },
+          messages: true
+        },
+        orderBy: { createdAt: "desc" }
+      });
+    }
+
     // If user is CUSTOMER, only show their own tickets
     if (req.user.role === "CUSTOMER") {
       // For customers, we need to find tickets where they are the creator
@@ -73,6 +96,23 @@ export class TicketController {
 
   static async getById(req: any, res: Response) {
     try {
+      if (req.user.role === "AGENT") {
+        const prisma = require("../../config/database").default;
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            assignedAgent: {
+              userId: req.user.id
+            }
+          },
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
       const ticket = await TicketService.getTicketById(
         req.params.id,
         req.user.orgId
@@ -86,6 +126,23 @@ export class TicketController {
   static async updateStatus(req: any, res: Response) {
     try {
       const data = updateStatusSchema.parse(req.body);
+      if (req.user.role === "AGENT") {
+        const prisma = require("../../config/database").default;
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            assignedAgent: {
+              userId: req.user.id
+            }
+          },
+          select: { id: true }
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
 
       const ticket = await TicketService.updateTicketStatus(
         req.params.id,
