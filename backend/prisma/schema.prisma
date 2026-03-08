@@ -75,6 +75,8 @@ enum Role {
 enum TicketStatus {
   OPEN
   AI_HANDLING
+  ESCALATED
+  IN_PROGRESS
   WAITING_FOR_HUMAN
   RESOLVED
   CLOSED

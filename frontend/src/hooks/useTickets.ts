@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, UseQueryResult, UseMutationResult } from '@tanstack/react-query';
 import { ticketsService } from '../services/ticket.service';
 import type { Ticket, TicketMessage, CreateTicketRequest, TicketStatus } from '../types';
+import type { SendMessageResponse } from '../services/ticket.service';
 
 export function useTickets(): UseQueryResult<Ticket[]> {
     return useQuery({
@@ -40,7 +41,34 @@ export function useUpdateTicketStatus(): UseMutationResult<Ticket, Error, { id: 
     });
 }
 
-export function useAddMessage(): UseMutationResult<TicketMessage, Error, { ticketId: string; content: string; role?: string }> {
+export function useUpdateTicket(): UseMutationResult<
+    Ticket,
+    Error,
+    { id: string; data: { subject?: string; description?: string; priority?: 'LOW' | 'MEDIUM' | 'HIGH' } }
+> {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, data }) => ticketsService.update(id, data),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['tickets', data.id] });
+        },
+    });
+}
+
+export function useDeleteTicket(): UseMutationResult<{ success: boolean; id: string }, Error, { id: string }> {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id }) => ticketsService.remove(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        },
+    });
+}
+
+export function useAddMessage(): UseMutationResult<SendMessageResponse, Error, { ticketId: string; content: string; role?: string }> {
     const queryClient = useQueryClient();
 
     return useMutation({

@@ -12,7 +12,6 @@ export function Select({ label, error, options, ...props }: SelectProps) {
     <div className="select-wrapper">
       {label && <label className="select-label">{label}</label>}
       <select className={`select ${error ? 'select--error' : ''}`} {...props}>
-        <option value="">Select an option</option>
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}

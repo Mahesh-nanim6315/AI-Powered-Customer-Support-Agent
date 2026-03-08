@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { sendRefundLinkTool } from "../../ai/tools/sendRefundLink.tool";
 import { updateTicketStatusTool } from "../../ai/tools/updateTicketStatus.tool";
 import { changePriority, escalateTicket } from "../../ai/tools/tools.service";
+import { normalizeApiStatus, toDbStatus } from "../tickets/ticketStatus.lifecycle";
 
 export type SuggestionActionType =
   | "ESCALATE_TO_HUMAN"
@@ -78,10 +79,12 @@ export class AiSuggestionsService {
       const priority = (params.priority as "LOW" | "MEDIUM" | "HIGH") ?? "HIGH";
       await changePriority(suggestion.ticketId, priority);
     } else if (suggestion.actionType === "UPDATE_TICKET_STATUS") {
-      const status =
-        (params.status as "OPEN" | "AI_HANDLING" | "WAITING_FOR_HUMAN" | "RESOLVED" | "CLOSED") ??
-        "OPEN";
-      await updateTicketStatusTool({ ticketId: suggestion.ticketId, status, note: params.note });
+      const nextStatus = normalizeApiStatus(String(params.status ?? "OPEN"));
+      await updateTicketStatusTool({
+        ticketId: suggestion.ticketId,
+        status: toDbStatus(nextStatus),
+        note: params.note,
+      });
     } else if (suggestion.actionType === "SEND_REFUND_LINK") {
       const amount = Number(params.amount ?? 0);
       await sendRefundLinkTool({ ticketId: suggestion.ticketId, amount });
@@ -95,4 +98,3 @@ export class AiSuggestionsService {
     return updated;
   }
 }
-

@@ -22,7 +22,7 @@ export async function escalateToHumanTool({
         await prisma.ticket.update({
             where: { id: ticketId },
             data: {
-                status: "WAITING_FOR_HUMAN",
+                status: "ESCALATED" as any,
             },
         });
 

@@ -16,7 +16,7 @@ export async function searchKnowledge(message: string, orgId: string) {
 export async function escalateTicket(ticketId: string) {
   return prisma.ticket.update({
     where: { id: ticketId },
-    data: { status: "WAITING_FOR_HUMAN" },
+    data: { status: "ESCALATED" as any },
   });
 }
 

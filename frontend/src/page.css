@@ -186,7 +186,6 @@
     align-items: flex-start;
   }
 }
-}
 
 .metric-label {
   font-size: 0.85rem;
@@ -368,4 +367,127 @@
 
 .alert-notification {
   animation: slideDown 0.3s ease-out;
+}
+
+/* Ticket Workspace (Industry-style) */
+.tickets-workspace {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr;
+  gap: 1rem;
+}
+
+.tickets-pane {
+  min-height: 70vh;
+}
+
+.tickets-pane--list {
+  display: flex;
+  flex-direction: column;
+}
+
+.tickets-list--compact {
+  overflow-y: auto;
+  max-height: 62vh;
+  padding-right: 0.3rem;
+}
+
+.ticket-card--active {
+  border-color: #2563eb;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.2);
+}
+
+.tickets-pane--chat {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 62vh;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0.25rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-bubble {
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  max-width: 90%;
+}
+
+.chat-bubble--customer {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  align-self: flex-start;
+}
+
+.chat-bubble--ai {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  align-self: flex-start;
+}
+
+.chat-bubble--agent {
+  background: #fef3c7;
+  border-color: #fde68a;
+  align-self: flex-end;
+}
+
+.chat-bubble-role {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  opacity: 0.8;
+  text-transform: uppercase;
+}
+
+.chat-bubble-time {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
+
+.chat-typing {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.chat-composer {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.8rem;
+  margin-top: 0.4rem;
+}
+
+@media (max-width: 1024px) {
+  .tickets-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .tickets-pane {
+    min-height: auto;
+  }
+
+  .chat-panel {
+    min-height: 50vh;
+  }
 }

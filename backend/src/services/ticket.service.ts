@@ -69,12 +69,12 @@ export class TicketService {
           io.to(`ticket-${ticket.id}`).emit("newMessage", aiMessage);
           io.to(`org-${data.orgId}`).emit("ticketUpdated", { ticketId: ticket.id, status: "WAITING_FOR_HUMAN" });
           console.log("✅ Real-time updates emitted");
-        } catch (socketError) {
-          console.warn("⚠️ Failed to emit Socket.io event:", socketError.message);
+        } catch (socketError: any) {
+          console.warn("⚠️ Failed to emit Socket.io event:", socketError?.message || socketError);
         }
 
-      } catch (aiError) {
-        console.error("❌ AI processing failed:", aiError.message);
+      } catch (aiError: any) {
+        console.error("❌ AI processing failed:", aiError?.message || aiError);
         // Fallback: just update status to waiting for human
         await prisma.ticket.update({
           where: { id: ticket.id },

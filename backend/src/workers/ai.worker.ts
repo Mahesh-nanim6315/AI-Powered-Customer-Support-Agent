@@ -4,6 +4,7 @@ import { runAgent } from "../services/agent.service";
 import { logger } from "../utils/logger";
 import prisma from "../config/database";
 import { getIO } from "../config/socket";
+import { toApiStatus } from "../modules/tickets/ticketStatus.lifecycle";
 
 const aiWorker = new Worker(
   "aiQueue",
@@ -29,7 +30,8 @@ const aiWorker = new Worker(
     });
 
     // Update ticket status based on processing type
-    const newStatus = isInitialProcessing ? "WAITING_FOR_HUMAN" : "RESOLVED";
+    const newStatus = isInitialProcessing ? "ESCALATED" : "RESOLVED";
+    const apiStatus = toApiStatus(newStatus);
 
     await prisma.ticket.update({
       where: { id: ticketId },
@@ -41,8 +43,10 @@ const aiWorker = new Worker(
       const io = getIO();
       io.to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
       io.to(`ticket-${ticketId}`).emit("message-added", aiMessage);
-      io.to(`org-${orgId}`).emit("ticketUpdated", { ticketId, status: newStatus });
-      io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: newStatus });
+      io.to(`ticket-${ticketId}`).emit("ai_reply", aiMessage);
+      io.to(`org-${orgId}`).emit("ticketUpdated", { ticketId, status: apiStatus });
+      io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: apiStatus });
+      io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: apiStatus });
     } catch (error) {
       logger.warn("Failed to emit Socket.io event", { error: error instanceof Error ? error.message : String(error) });
     }

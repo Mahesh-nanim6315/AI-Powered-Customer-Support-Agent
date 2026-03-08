@@ -15,7 +15,12 @@ export class AnalyticsService {
         });
 
         const open = await prisma.ticket.count({
-            where: { orgId, status: "OPEN" },
+            where: {
+                orgId,
+                status: {
+                    in: ["OPEN", "AI_HANDLING", "IN_PROGRESS"] as any,
+                },
+            },
         });
 
         const resolved = await prisma.ticket.count({
@@ -23,7 +28,12 @@ export class AnalyticsService {
         });
 
         const escalated = await prisma.ticket.count({
-            where: { orgId, status: "WAITING_FOR_HUMAN" },
+            where: {
+                orgId,
+                status: {
+                    in: ["WAITING_FOR_HUMAN", "ESCALATED"] as any,
+                },
+            },
         });
 
         return {

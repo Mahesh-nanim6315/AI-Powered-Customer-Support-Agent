@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { TicketService } from "./tickets.service";
-import { createTicketSchema, updateStatusSchema } from "./tickets.validators";
+import { createTicketSchema, updateStatusSchema, updateTicketSchema } from "./tickets.validators";
+import {
+  normalizeTicketForApi,
+  normalizeTicketListForApi,
+} from "./ticketStatus.lifecycle";
 
 export class TicketController {
 
@@ -37,7 +41,7 @@ export class TicketController {
         ticketData
       );
 
-      res.status(201).json(ticket);
+      res.status(201).json(normalizeTicketForApi(ticket));
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -91,13 +95,13 @@ export class TicketController {
       });
     }
 
-    res.json(tickets);
+    res.json(normalizeTicketListForApi(tickets));
   }
 
   static async getById(req: any, res: Response) {
     try {
+      const prisma = require("../../config/database").default;
       if (req.user.role === "AGENT") {
-        const prisma = require("../../config/database").default;
         const allowedTicket = await prisma.ticket.findFirst({
           where: {
             id: req.params.id,
@@ -113,11 +117,26 @@ export class TicketController {
         }
       }
 
+      if (req.user.role === "CUSTOMER") {
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            createdByUserId: req.user.id,
+          },
+          select: { id: true }
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
       const ticket = await TicketService.getTicketById(
         req.params.id,
         req.user.orgId
       );
-      res.json(ticket);
+      res.json(normalizeTicketForApi(ticket));
     } catch (error: any) {
       res.status(404).json({ message: error.message });
     }
@@ -126,8 +145,8 @@ export class TicketController {
   static async updateStatus(req: any, res: Response) {
     try {
       const data = updateStatusSchema.parse(req.body);
+      const prisma = require("../../config/database").default;
       if (req.user.role === "AGENT") {
-        const prisma = require("../../config/database").default;
         const allowedTicket = await prisma.ticket.findFirst({
           where: {
             id: req.params.id,
@@ -151,6 +170,93 @@ export class TicketController {
       );
 
       res.json(ticket);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  static async update(req: any, res: Response) {
+    try {
+      const data = updateTicketSchema.parse(req.body);
+      const prisma = require("../../config/database").default;
+
+      if (req.user.role === "AGENT") {
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            assignedAgent: {
+              userId: req.user.id
+            }
+          },
+          select: { id: true }
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      if (req.user.role === "CUSTOMER") {
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            createdByUserId: req.user.id,
+          },
+          select: { id: true }
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      const ticket = await TicketService.updateTicketDetails(req.params.id, req.user.orgId, data);
+      res.json(ticket);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  static async delete(req: any, res: Response) {
+    try {
+      const prisma = require("../../config/database").default;
+
+      if (req.user.role === "AGENT") {
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            assignedAgent: {
+              userId: req.user.id
+            }
+          },
+          select: { id: true }
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      if (req.user.role === "CUSTOMER") {
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            createdByUserId: req.user.id,
+          },
+          select: { id: true }
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      await TicketService.deleteTicket(req.params.id, req.user.orgId);
+      res.json({ success: true, id: req.params.id });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

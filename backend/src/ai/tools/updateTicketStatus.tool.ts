@@ -12,7 +12,14 @@ import prisma from "../../config/database";
 
 interface UpdateTicketStatusInput {
     ticketId: string;
-    status: "OPEN" | "AI_HANDLING" | "WAITING_FOR_HUMAN" | "RESOLVED" | "CLOSED";
+    status:
+    | "OPEN"
+    | "AI_HANDLING"
+    | "ESCALATED"
+    | "IN_PROGRESS"
+    | "WAITING_FOR_HUMAN"
+    | "RESOLVED"
+    | "CLOSED";
     note?: string;
 }
 
@@ -25,7 +32,7 @@ export async function updateTicketStatusTool({
         // 1️⃣ Update ticket status
         const updatedTicket = await prisma.ticket.update({
             where: { id: ticketId },
-            data: { status },
+            data: { status: status as any },
         });
 
         // 2️⃣ Log system message

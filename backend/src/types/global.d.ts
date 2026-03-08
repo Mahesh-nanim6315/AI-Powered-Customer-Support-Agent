@@ -3,9 +3,12 @@ export {};
 declare global {
   type TicketStatus =
     | "OPEN"
+    | "AI_HANDLING"
+    | "ESCALATED"
     | "IN_PROGRESS"
+    | "WAITING_FOR_HUMAN"
     | "RESOLVED"
-    | "ESCALATED";
+    | "CLOSED";
 
   type TicketPriority =
     | "LOW"

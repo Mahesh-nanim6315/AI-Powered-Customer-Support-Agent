@@ -11,7 +11,9 @@ router.use(authMiddleware);
 router.post("/", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.create);
 router.get("/", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getAll);
 router.get("/:id", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getById);
+router.patch("/:id", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.update);
 router.patch("/:id/status", allowRoles("ADMIN", "AGENT"), TicketController.updateStatus);
+router.delete("/:id", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.delete);
 router.post("/:id/messages", allowRoles("ADMIN", "AGENT", "CUSTOMER"), sendMessage);
 
 export default router;

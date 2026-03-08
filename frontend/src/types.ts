@@ -40,7 +40,14 @@ export interface Organization {
 }
 
 // ============ TICKETS ============
-export type TicketStatus = "OPEN" | "AI_HANDLING" | "WAITING_FOR_HUMAN" | "RESOLVED" | "CLOSED";
+export type TicketStatus =
+  | "OPEN"
+  | "AI_HANDLING"
+  | "ESCALATED"
+  | "IN_PROGRESS"
+  | "WAITING_FOR_HUMAN"
+  | "RESOLVED"
+  | "CLOSED";
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";
 export type MessageRole = "CUSTOMER" | "AGENT" | "AI";
 
@@ -157,4 +164,3 @@ export interface DashboardAnalytics {
   aiResolutionRate: number;
   customerSatisfaction: number;
 }
-

@@ -3,6 +3,13 @@ import prisma from "../../config/database";
 import { AgentService } from "../agents/agents.service";
 import { io } from "../../server";
 import { addAIJob } from "../../queues/bullmq";
+import {
+  canTransitionStatus,
+  normalizeApiStatus,
+  normalizeTicketForApi,
+  toApiStatus,
+  toDbStatus,
+} from "./ticketStatus.lifecycle";
 
 
 export class TicketService {
@@ -28,11 +35,13 @@ export class TicketService {
     });
 
     io.to(`org-${orgId}`).emit("ticket-created", ticket);
+    io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status: "OPEN" });
 
     // Immediately move to AI handling and queue the first AI response.
     const aiHandlingTicket = await TicketRepository.updateStatus(ticket.id, orgId, "AI_HANDLING");
     if (aiHandlingTicket) {
       io.to(`org-${orgId}`).emit("ticket-updated", aiHandlingTicket);
+      io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status: "AI_HANDLING" });
     }
 
     try {
@@ -66,12 +75,26 @@ export class TicketService {
   }
 
   static async updateTicketStatus(id: string, orgId: string, status: any) {
-    const ticket = await TicketRepository.updateStatus(id, orgId, status);
+    const currentTicket = await TicketRepository.findById(id, orgId);
+    if (!currentTicket) {
+      throw new Error("Ticket not found");
+    }
+
+    const currentStatus = toApiStatus(currentTicket.status);
+    const nextStatus = normalizeApiStatus(String(status));
+    if (!canTransitionStatus(currentStatus, nextStatus)) {
+      throw new Error(`Invalid status transition: ${currentStatus} -> ${nextStatus}`);
+    }
+
+    const ticket = await TicketRepository.updateStatus(id, orgId, toDbStatus(nextStatus));
     if (!ticket) {
       throw new Error("Ticket not found");
     }
-    io.to(`org-${orgId}`).emit("ticket-updated", ticket);
-    return ticket;
+
+    const apiTicket = normalizeTicketForApi(ticket);
+    io.to(`org-${orgId}`).emit("ticket-updated", apiTicket);
+    io.to(`org-${orgId}`).emit("ticket_update", { ticketId: id, status: nextStatus });
+    return apiTicket;
   }
 
   static async addMessage(ticketId: string, orgId: string, role: any, content: string) {
@@ -87,6 +110,35 @@ export class TicketService {
     io.to(`ticket-${ticketId}`).emit("message-added", message);
 
     return message;
+  }
+
+  static async updateTicketDetails(
+    id: string,
+    orgId: string,
+    data: {
+      subject?: string;
+      description?: string;
+      priority?: "LOW" | "MEDIUM" | "HIGH";
+    }
+  ) {
+    const ticket = await TicketRepository.updateDetails(id, orgId, data);
+    if (!ticket) {
+      throw new Error("Ticket not found");
+    }
+
+    const apiTicket = normalizeTicketForApi(ticket);
+    io.to(`org-${orgId}`).emit("ticket-updated", apiTicket);
+    return apiTicket;
+  }
+
+  static async deleteTicket(id: string, orgId: string) {
+    const deleted = await TicketRepository.deleteById(id, orgId);
+    if (!deleted) {
+      throw new Error("Ticket not found");
+    }
+
+    io.to(`org-${orgId}`).emit("ticket-deleted", { ticketId: id });
+    return deleted;
   }
 
 }   
