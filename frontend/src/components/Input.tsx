@@ -1,17 +1,21 @@
-import { InputHTMLAttributes } from 'react';
+import { InputHTMLAttributes, forwardRef } from 'react';
 import '../components/input.css';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
+  label?: string | undefined;
+  error?: string | undefined;
 }
 
-export function Input({ label, error, ...props }: InputProps) {
-  return (
-    <div className="input-wrapper">
-      {label && <label className="input-label">{label}</label>}
-      <input className={`input ${error ? 'input--error' : ''}`} {...props} />
-      {error && <span className="input-error">{error}</span>}
-    </div>
-  );
-}
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ label, error, ...props }, ref) => {
+    return (
+      <div className="input-wrapper">
+        {label && <label className="input-label">{label}</label>}
+        <input ref={ref} className={`input ${error ? 'input--error' : ''}`} {...props} />
+        {error && <span className="input-error">{error}</span>}
+      </div>
+    );
+  }
+);
+
+Input.displayName = 'Input';

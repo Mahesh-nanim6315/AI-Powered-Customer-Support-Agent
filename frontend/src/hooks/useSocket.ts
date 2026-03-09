@@ -14,7 +14,7 @@ function createNewSocket(token: string): Socket {
             auth: { token },
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
+            reconnectionDelayMax: 5001,
             reconnectionAttempts: 5,
             transports: ['websocket', 'polling'],
         });

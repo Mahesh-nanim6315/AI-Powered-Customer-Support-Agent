@@ -47,3 +47,38 @@ export function useUpdateAgentSpecialization(): UseMutationResult<Agent, Error, 
         },
     });
 }
+
+export function useCreateAgent(): UseMutationResult<Agent, Error, { email: string; password?: string; specialization?: string }> {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (data) => agentsService.create(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['agents'] });
+        },
+    });
+}
+
+export function useUpdateAgent(): UseMutationResult<Agent, Error, { id: string; email?: string; password?: string; specialization?: string }> {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, ...data }) => agentsService.update(id, data),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['agents'] });
+            queryClient.invalidateQueries({ queryKey: ['agents', data.id] });
+        },
+    });
+}
+
+export function useDeleteAgent(): UseMutationResult<{ success: boolean }, Error, string> {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id) => agentsService.delete(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['agents'] });
+        },
+    });
+}
+

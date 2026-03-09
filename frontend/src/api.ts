@@ -18,11 +18,16 @@ async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
     headers.Authorization = `Bearer ${options.token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const fetchOptions: RequestInit = {
     method: options.method ?? "GET",
     headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  };
+
+  if (options.body !== undefined) {
+    fetchOptions.body = JSON.stringify(options.body);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, fetchOptions);
 
   if (!response.ok) {
     const text = await response.text();
@@ -49,11 +54,12 @@ interface JwtPayload {
 function decodeJwtPayload(token: string): JwtPayload | null {
   try {
     const parts = token.split(".");
-    if (parts.length < 2) return null;
-    const payload = parts[1]
+    if (parts.length < 2 || !parts[1]) return null;
+    const part1 = parts[1];
+    const payload = part1
       .replace(/-/g, "+")
       .replace(/_/g, "/")
-      .padEnd(parts[1].length + ((4 - (parts[1].length % 4)) % 4), "=");
+      .padEnd(part1.length + ((4 - (part1.length % 4)) % 4), "=");
     const json = atob(payload);
     return JSON.parse(json) as JwtPayload;
   } catch {
@@ -102,6 +108,6 @@ export async function fetchTickets(token: string): Promise<Ticket[]> {
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
     assignedAgent: undefined,
-  }));
+  })) as unknown as Ticket[];
 }
 

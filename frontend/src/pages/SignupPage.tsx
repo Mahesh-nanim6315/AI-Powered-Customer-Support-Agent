@@ -33,7 +33,7 @@ export function SignupPage({ onAuthenticated, onBackToLogin }: SignupPageProps) 
 
     try {
       const response = await registerMutation.mutateAsync({
-        orgName: data.orgName,
+        orgName: data.orgName || '',
         email: data.email,
         password: data.password,
       });
