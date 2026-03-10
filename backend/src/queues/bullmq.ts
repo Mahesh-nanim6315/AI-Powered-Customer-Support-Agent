@@ -1,22 +1,33 @@
 import { Queue } from "bullmq";
 import { redisConnectionOptions } from "../config/redis";
+import { logger } from "../utils/logger";
 
 /**
  * Centralized BullMQ queues
  * Used by controllers/services to add jobs
  */
 
-export const aiQueue = new Queue("aiQueue", {
-  connection: redisConnectionOptions,
+const queuesEnabled = Boolean(redisConnectionOptions);
+
+const createNoopQueue = (name: string) => ({
+  name,
+  add: async () => {
+    logger.warn(`Queue "${name}" is disabled; job not enqueued`);
+    return { id: "disabled" };
+  },
 });
 
-export const emailQueue = new Queue("emailQueue", {
-  connection: redisConnectionOptions,
-});
+export const aiQueue = queuesEnabled
+  ? new Queue("aiQueue", { connection: redisConnectionOptions! })
+  : (createNoopQueue("aiQueue") as any);
 
-export const analyticsQueue = new Queue("analyticsQueue", {
-  connection: redisConnectionOptions,
-});
+export const emailQueue = queuesEnabled
+  ? new Queue("emailQueue", { connection: redisConnectionOptions! })
+  : (createNoopQueue("emailQueue") as any);
+
+export const analyticsQueue = queuesEnabled
+  ? new Queue("analyticsQueue", { connection: redisConnectionOptions! })
+  : (createNoopQueue("analyticsQueue") as any);
 
 /**
  * Optional: helper functions (cleaner usage)

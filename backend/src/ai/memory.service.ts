@@ -1,4 +1,4 @@
-import { redisConnection } from "../config/redis";
+import { isRedisEnabled, redisConnection } from "../config/redis";
 
 type MemoryRole = "USER" | "AI" | "AGENT";
 
@@ -18,6 +18,10 @@ export async function appendMemory(
   role: MemoryRole,
   content: string
 ) {
+  if (!isRedisEnabled || !redisConnection) {
+    return;
+  }
+
   const key = memoryKey(orgId, ticketId);
   const entry: MemoryEntry = {
     role,
@@ -31,6 +35,10 @@ export async function appendMemory(
 }
 
 export async function getRecentMemory(orgId: string, ticketId: string, limit = 12) {
+  if (!isRedisEnabled || !redisConnection) {
+    return [];
+  }
+
   const key = memoryKey(orgId, ticketId);
   const raw = await redisConnection.lrange(key, -limit, -1);
   return raw

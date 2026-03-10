@@ -171,6 +171,28 @@
   color: #1f2937;
 }
 
+.app-header-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  margin-right: 0.75rem;
+  min-width: 120px;
+}
+
+.app-header-user-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.app-header-user-role {
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
 .app-header-logout {
   background: none;
   border: none;

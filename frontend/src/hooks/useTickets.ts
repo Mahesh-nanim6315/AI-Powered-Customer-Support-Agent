@@ -10,6 +10,14 @@ export function useTickets(): UseQueryResult<Ticket[]> {
     });
 }
 
+export function useUnassignedTickets(enabled: boolean): UseQueryResult<Ticket[]> {
+    return useQuery({
+        queryKey: ['tickets', 'unassigned'],
+        queryFn: () => ticketsService.getUnassigned(),
+        enabled,
+    });
+}
+
 export function useTicket(id: string): UseQueryResult<Ticket> {
     return useQuery({
         queryKey: ['tickets', id],

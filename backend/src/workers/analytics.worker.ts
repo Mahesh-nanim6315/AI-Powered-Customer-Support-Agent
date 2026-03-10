@@ -1,29 +1,38 @@
 import { Worker } from "bullmq";
-import { redisConnectionOptions } from "../config/redis";
+import { isRedisEnabled, redisConnectionOptions } from "../config/redis";
 import { prisma } from "../config/db";
 import { logger } from "../utils/logger";
 
-const analyticsWorker = new Worker(
-  "analyticsQueue",
-  async (job) => {
-    const { ticketId, sentimentScore } = job.data;
+const workersEnabled =
+  String(process.env.ENABLE_BULLMQ_WORKERS).toLowerCase() === "true";
 
-    logger.info("Analytics Worker started", { ticketId });
+let analyticsWorker: Worker | null = null;
 
-    await prisma.ticketAnalytics.create({
-      data: {
-        ticketId,
-        sentimentScore,
-      },
-    });
+if (workersEnabled && isRedisEnabled && redisConnectionOptions) {
+  analyticsWorker = new Worker(
+    "analyticsQueue",
+    async (job) => {
+      const { ticketId, sentimentScore } = job.data;
 
-    logger.info("Analytics Worker completed", { ticketId });
-  },
-  { connection: redisConnectionOptions }
-);
+      logger.info("Analytics Worker started", { ticketId });
 
-analyticsWorker.on("failed", (job, err) => {
-  logger.error("Analytics Worker failed", { error: err.message });
-});
+      await prisma.ticketAnalytics.create({
+        data: {
+          ticketId,
+          sentimentScore,
+        },
+      });
+
+      logger.info("Analytics Worker completed", { ticketId });
+    },
+    { connection: redisConnectionOptions }
+  );
+
+  analyticsWorker.on("failed", (job, err) => {
+    logger.error("Analytics Worker failed", { error: err.message });
+  });
+} else {
+  logger.warn("Analytics Worker disabled via environment configuration");
+}
 
 export default analyticsWorker;

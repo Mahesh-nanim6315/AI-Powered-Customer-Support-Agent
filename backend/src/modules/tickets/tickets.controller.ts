@@ -50,7 +50,7 @@ export class TicketController {
   static async getAll(req: any, res: Response) {
     let tickets = await TicketService.getTickets(req.user.orgId);
 
-    // If user is AGENT, only show assigned tickets
+    // If user is AGENT, only show tickets assigned to them
     if (req.user.role === "AGENT") {
       const prisma = require("../../config/database").default;
       tickets = await prisma.ticket.findMany({
@@ -96,6 +96,32 @@ export class TicketController {
     }
 
     res.json(normalizeTicketListForApi(tickets));
+  }
+
+  static async getUnassigned(req: any, res: Response) {
+    try {
+      const prisma = require("../../config/database").default;
+      const tickets = await prisma.ticket.findMany({
+        where: {
+          orgId: req.user.orgId,
+          assignedAgentId: null,
+        },
+        include: {
+          customer: true,
+          assignedAgent: {
+            include: {
+              user: true
+            }
+          },
+          messages: true
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json(normalizeTicketListForApi(tickets));
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
   }
 
   static async getById(req: any, res: Response) {

@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import { useTickets, useCreateTicket, useUpdateTicketStatus, useTicket, useAddMessage, useUpdateTicket, useDeleteTicket } from '../hooks/useTickets';
+import { useTickets, useUnassignedTickets, useCreateTicket, useUpdateTicketStatus, useTicket, useAddMessage, useUpdateTicket, useDeleteTicket } from '../hooks/useTickets';
 import { useCustomers } from '../hooks/useCustomers';
 import { useRealtime } from '../context/RealtimeContext';
 import { useEmitSocket } from '../hooks/useSocket';
@@ -15,6 +15,8 @@ interface TicketsPageProps {
 export function TicketsPage({ user }: TicketsPageProps) {
   const ticketsQuery = useTickets();
   const customersQuery = useCustomers();
+  const isAgent = user?.role === 'AGENT';
+  const unassignedTicketsQuery = useUnassignedTickets(Boolean(isAgent));
   const createTicketMutation = useCreateTicket();
   const updateStatusMutation = useUpdateTicketStatus();
   const updateTicketMutation = useUpdateTicket();
@@ -33,6 +35,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
   const [showLiveNotification, setShowLiveNotification] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [currentAiMode, setCurrentAiMode] = useState<'llm' | 'kb_fallback' | 'safe_fallback' | null>(null);
+  const [agentView, setAgentView] = useState<'my' | 'unassigned'>('my');
   const [createFormData, setCreateFormData] = useState({
     customerId: '',
     subject: '',
@@ -46,8 +49,11 @@ export function TicketsPage({ user }: TicketsPageProps) {
   });
 
   const tickets = ticketsQuery.data || [];
+  const unassignedTickets = unassignedTicketsQuery.data || [];
   const customers = customersQuery.data || [];
   const selectedTicket = selectedTicketQuery.data;
+  const isAdmin = user?.role === 'ADMIN';
+  const activeTickets = isAgent && agentView === 'unassigned' ? unassignedTickets : tickets;
 
   useEffect(() => {
     if (user?.role === 'CUSTOMER' && user?.id && !createFormData.customerId) {
@@ -59,10 +65,11 @@ export function TicketsPage({ user }: TicketsPageProps) {
     if (realtime.ticketCreated.id || realtime.ticketUpdated.id) {
       setShowLiveNotification(true);
       ticketsQuery.refetch();
+      if (isAgent) unassignedTicketsQuery.refetch();
       const timer = setTimeout(() => setShowLiveNotification(false), 3000);
       return () => clearTimeout(timer);
     }
-  }, [realtime.ticketCreated, realtime.ticketUpdated, ticketsQuery]);
+  }, [realtime.ticketCreated, realtime.ticketUpdated, ticketsQuery, unassignedTicketsQuery, isAgent]);
 
   useEffect(() => {
     if (!selectedTicketId) return;
@@ -74,8 +81,9 @@ export function TicketsPage({ user }: TicketsPageProps) {
     if (realtime.messageAdded.ticketId === selectedTicketId) {
       selectedTicketQuery.refetch();
       ticketsQuery.refetch();
+      if (isAgent) unassignedTicketsQuery.refetch();
     }
-  }, [selectedTicketId, realtime.messageAdded, selectedTicketQuery, ticketsQuery]);
+  }, [selectedTicketId, realtime.messageAdded, selectedTicketQuery, ticketsQuery, unassignedTicketsQuery, isAgent]);
 
   useEffect(() => {
     if (!selectedTicketId) return;
@@ -85,14 +93,14 @@ export function TicketsPage({ user }: TicketsPageProps) {
   }, [selectedTicketId, realtime.aiMode]);
 
   useEffect(() => {
-    if (!selectedTicketId) return;
+    if (!selectedTicketId || isAdmin) return;
     const isTyping = messageText.trim().length > 0;
     emitSocket('typing_indicator', { ticketId: selectedTicketId, isTyping });
     const timer = setTimeout(() => {
       emitSocket('typing_indicator', { ticketId: selectedTicketId, isTyping: false });
     }, 800);
     return () => clearTimeout(timer);
-  }, [messageText, selectedTicketId, emitSocket]);
+  }, [messageText, selectedTicketId, emitSocket, isAdmin]);
 
   useEffect(() => {
     if (!selectedTicket) return;
@@ -103,7 +111,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
     });
   }, [selectedTicket?.id]);
 
-  const filteredTickets = tickets.filter((ticket) => {
+  const filteredActiveTickets = activeTickets.filter((ticket) => {
     const matchesSearch =
       ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -133,6 +141,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
       setCreateFormData({ customerId: '', subject: '', description: '', priority: 'MEDIUM' });
       setSelectedTicketId(created.id);
       ticketsQuery.refetch();
+      if (isAgent) unassignedTicketsQuery.refetch();
     } catch (error) {
       console.error('Failed to create ticket:', error);
     }
@@ -142,6 +151,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
     try {
       await updateStatusMutation.mutateAsync({ id: ticketId, status: newStatus });
       ticketsQuery.refetch();
+      if (isAgent) unassignedTicketsQuery.refetch();
       if (selectedTicketId === ticketId) selectedTicketQuery.refetch();
     } catch (error) {
       console.error('Failed to update ticket status:', error);
@@ -172,6 +182,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
       setIsEditModalOpen(false);
       selectedTicketQuery.refetch();
       ticketsQuery.refetch();
+      if (isAgent) unassignedTicketsQuery.refetch();
     } catch (error) {
       console.error('Failed to update ticket:', error);
       alert('Failed to update ticket');
@@ -185,6 +196,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
       await deleteTicketMutation.mutateAsync({ id: selectedTicket.id });
       setSelectedTicketId(null);
       ticketsQuery.refetch();
+      if (isAgent) unassignedTicketsQuery.refetch();
     } catch (error) {
       console.error('Failed to delete ticket:', error);
       alert('Failed to delete ticket');
@@ -192,6 +204,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
   };
 
   const handleSendMessage = async () => {
+    if (isAdmin) return;
     if (!selectedTicketId || !messageText.trim()) return;
     try {
       const response = await addMessageMutation.mutateAsync({ ticketId: selectedTicketId, content: messageText.trim() });
@@ -202,13 +215,16 @@ export function TicketsPage({ user }: TicketsPageProps) {
       emitSocket('typing_indicator', { ticketId: selectedTicketId, isTyping: false });
       selectedTicketQuery.refetch();
       ticketsQuery.refetch();
+      if (isAgent) unassignedTicketsQuery.refetch();
       setTimeout(() => {
         selectedTicketQuery.refetch();
         ticketsQuery.refetch();
+        if (isAgent) unassignedTicketsQuery.refetch();
       }, 3500);
       setTimeout(() => {
         selectedTicketQuery.refetch();
         ticketsQuery.refetch();
+        if (isAgent) unassignedTicketsQuery.refetch();
       }, 9000);
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -244,7 +260,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
     safe_fallback: 'danger',
   };
 
-  if (ticketsQuery.isLoading || customersQuery.isLoading) {
+  if (ticketsQuery.isLoading || customersQuery.isLoading || (isAgent && unassignedTicketsQuery.isLoading)) {
     return (
       <div className="page">
         <Spinner fullScreen />
@@ -282,6 +298,22 @@ export function TicketsPage({ user }: TicketsPageProps) {
 
       <div className="tickets-workspace">
         <Card className="tickets-pane tickets-pane--list">
+          {isAgent && (
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+              <Button
+                variant={agentView === 'my' ? 'primary' : 'secondary'}
+                onClick={() => setAgentView('my')}
+              >
+                My Tickets ({tickets.length})
+              </Button>
+              <Button
+                variant={agentView === 'unassigned' ? 'primary' : 'secondary'}
+                onClick={() => setAgentView('unassigned')}
+              >
+                Unassigned ({unassignedTickets.length})
+              </Button>
+            </div>
+          )}
           <div className="filters-row" style={{ marginBottom: '1rem' }}>
             <div className="filter-input">
               <Search size={20} />
@@ -318,11 +350,14 @@ export function TicketsPage({ user }: TicketsPageProps) {
           </div>
 
           <div className="tickets-list tickets-list--compact">
-            {filteredTickets.map((ticket) => (
+            {filteredActiveTickets.map((ticket) => (
               <Card
                 key={ticket.id}
                 hoverable
-                onClick={() => setSelectedTicketId(ticket.id)}
+                onClick={() => {
+                  if (isAdmin) return;
+                  setSelectedTicketId(ticket.id);
+                }}
                 className={`ticket-card ${selectedTicketId === ticket.id ? 'ticket-card--active' : ''}`}
               >
                 <div className="ticket-content">
@@ -349,10 +384,14 @@ export function TicketsPage({ user }: TicketsPageProps) {
         </Card>
 
         <Card className="tickets-pane tickets-pane--chat">
-          {!selectedTicketId ? (
+          {isAdmin ? (
             <div className="empty-state">
               <MessageSquare size={48} />
-              <p>Select a ticket to open live conversation</p>
+              <p>Admin view is read-only. Chat is disabled.</p>
+            </div>
+          ) : !selectedTicketId ? (
+            <div className="empty-state">
+              <MessageSquare size={48} />
             </div>
           ) : selectedTicketQuery.isLoading ? (
             <Spinner />
@@ -417,26 +456,28 @@ export function TicketsPage({ user }: TicketsPageProps) {
                 )}
               </div>
 
-              <div className="chat-composer">
-                <TextArea
-                  label="Reply"
-                  placeholder="Type your message..."
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  disabled={addMessageMutation.isPending}
-                />
-                <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '-0.25rem' }}>
-                  AI auto-reply is triggered for customer messages. Agent/Admin messages are human replies only.
+              {!isAdmin && (
+                <div className="chat-composer">
+                  <TextArea
+                    label="Reply"
+                    placeholder="Type your message..."
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    disabled={addMessageMutation.isPending}
+                  />
+                  <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '-0.25rem' }}>
+                    AI auto-reply is triggered for customer messages. Agent/Admin messages are human replies only.
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={addMessageMutation.isPending || !messageText.trim()}
+                    >
+                      {addMessageMutation.isPending ? 'Sending...' : 'Send Message'}
+                    </Button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={addMessageMutation.isPending || !messageText.trim()}
-                  >
-                    {addMessageMutation.isPending ? 'Sending...' : 'Send Message'}
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </Card>

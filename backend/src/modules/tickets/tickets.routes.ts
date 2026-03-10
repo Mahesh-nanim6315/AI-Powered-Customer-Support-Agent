@@ -10,6 +10,7 @@ router.use(authMiddleware);
 
 router.post("/", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.create);
 router.get("/", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getAll);
+router.get("/unassigned", allowRoles("ADMIN", "AGENT"), TicketController.getUnassigned);
 router.get("/:id", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getById);
 router.patch("/:id", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.update);
 router.patch("/:id/status", allowRoles("ADMIN", "AGENT"), TicketController.updateStatus);

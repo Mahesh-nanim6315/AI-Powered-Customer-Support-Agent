@@ -1,36 +1,39 @@
 import { Worker } from "bullmq";
-import { redisConnectionOptions } from "../config/redis";
+import { isRedisEnabled, redisConnectionOptions } from "../config/redis";
 import { EmailService } from "../services/email.service";
 import { logger } from "../utils/logger";
 
-const emailWorker = new Worker(
-  "emailQueue",
-  async (job) => {
-    const { type, payload } = job.data;
+const workersEnabled =
+  String(process.env.ENABLE_BULLMQ_WORKERS).toLowerCase() === "true";
 
-    logger.info("Email Worker started", { type });
+let emailWorker: Worker | null = null;
 
-    if (type === "refund") {
-      await EmailService.sendRefundLinkEmail(
-        payload.email,
-        payload.link
-      );
-    }
+if (workersEnabled && isRedisEnabled && redisConnectionOptions) {
+  emailWorker = new Worker(
+    "emailQueue",
+    async (job) => {
+      const { type, payload } = job.data;
 
-    if (type === "escalation") {
-      await EmailService.notifyEscalation(
-        payload.agentEmail,
-        payload.ticketId
-      );
-    }
+      logger.info("Email Worker started", { type });
 
-    logger.info("Email Worker completed");
-  },
-  { connection: redisConnectionOptions }
-);
+      if (type === "refund") {
+        await EmailService.sendRefundLinkEmail(payload.email, payload.link);
+      }
 
-emailWorker.on("failed", (job, err) => {
-  logger.error("Email Worker failed", { error: err.message });
-});
+      if (type === "escalation") {
+        await EmailService.notifyEscalation(payload.agentEmail, payload.ticketId);
+      }
+
+      logger.info("Email Worker completed");
+    },
+    { connection: redisConnectionOptions }
+  );
+
+  emailWorker.on("failed", (job, err) => {
+    logger.error("Email Worker failed", { error: err.message });
+  });
+} else {
+  logger.warn("Email Worker disabled via environment configuration");
+}
 
 export default emailWorker;

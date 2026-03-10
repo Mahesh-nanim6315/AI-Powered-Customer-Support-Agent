@@ -25,6 +25,9 @@ interface AppLayoutProps extends PropsWithChildren {
 export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const realtime = useRealtime();
+  const displayName = (userEmail.split('@')[0] || 'User')
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 
   const navItems = [
     {
@@ -124,6 +127,10 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
             <Menu size={24} />
           </button>
           <div className="app-header-title">Support Console</div>
+          <div className="app-header-user">
+            <div className="app-header-user-name">{displayName}</div>
+            {/* <div className="app-header-user-role">{userRole}</div> */}
+          </div>
           <div className="app-header-status">
             <div
               className={`connection-status ${realtime.isConnected ? 'connected' : 'disconnected'}`}
@@ -141,6 +148,7 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
         <main className="app-content">{children}</main>
       </div>
     </div>
+    
   );
 }
 

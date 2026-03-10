@@ -13,6 +13,10 @@ export const ticketsService = {
         return apiClient.get<Ticket[]>('/tickets');
     },
 
+    async getUnassigned(): Promise<Ticket[]> {
+        return apiClient.get<Ticket[]>('/tickets/unassigned');
+    },
+
     async getById(id: string): Promise<Ticket> {
         return apiClient.get<Ticket>(`/tickets/${id}`);
     },

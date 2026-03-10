@@ -1,65 +1,76 @@
 import { Worker } from "bullmq";
-import { redisConnectionOptions } from "../config/redis";
+import { isRedisEnabled, redisConnectionOptions } from "../config/redis";
 import { runAgent } from "../services/agent.service";
 import { logger } from "../utils/logger";
 import prisma from "../config/database";
 import { getIO } from "../config/socket";
 import { toApiStatus } from "../modules/tickets/ticketStatus.lifecycle";
 
-const aiWorker = new Worker(
-  "aiQueue",
-  async (job) => {
-    const { ticketId, message, orgId, isInitialProcessing } = job.data as {
-      ticketId: string;
-      message: string;
-      orgId: string;
-      isInitialProcessing?: boolean;
-    };
+const workersEnabled =
+  String(process.env.ENABLE_BULLMQ_WORKERS).toLowerCase() === "true";
 
-    logger.info("AI Worker started", { ticketId, isInitialProcessing });
+let aiWorker: Worker | null = null;
 
-    const aiReply = await runAgent(message, orgId, ticketId);
+if (workersEnabled && isRedisEnabled && redisConnectionOptions) {
+  aiWorker = new Worker(
+    "aiQueue",
+    async (job) => {
+      const { ticketId, message, orgId, isInitialProcessing } = job.data as {
+        ticketId: string;
+        message: string;
+        orgId: string;
+        isInitialProcessing?: boolean;
+      };
 
-    // Save AI response as a message
-    const aiMessage = await prisma.ticketMessage.create({
-      data: {
-        ticketId,
-        role: "AI",
-        content: aiReply,
-      },
-    });
+      logger.info("AI Worker started", { ticketId, isInitialProcessing });
 
-    // Update ticket status based on processing type
-    const newStatus = isInitialProcessing ? "ESCALATED" : "RESOLVED";
-    const apiStatus = toApiStatus(newStatus);
+      const aiReply = await runAgent(message, orgId, ticketId);
 
-    await prisma.ticket.update({
-      where: { id: ticketId },
-      data: { status: newStatus },
-    });
+      // Save AI response as a message
+      const aiMessage = await prisma.ticketMessage.create({
+        data: {
+          ticketId,
+          role: "AI",
+          content: aiReply,
+        },
+      });
 
-    // Emit real-time update
-    try {
-      const io = getIO();
-      io.to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
-      io.to(`ticket-${ticketId}`).emit("message-added", aiMessage);
-      io.to(`ticket-${ticketId}`).emit("ai_reply", aiMessage);
-      io.to(`org-${orgId}`).emit("ticketUpdated", { ticketId, status: apiStatus });
-      io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: apiStatus });
-      io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: apiStatus });
-    } catch (error) {
-      logger.warn("Failed to emit Socket.io event", { error: error instanceof Error ? error.message : String(error) });
-    }
+      // Update ticket status based on processing type
+      const newStatus = isInitialProcessing ? "ESCALATED" : "RESOLVED";
+      const apiStatus = toApiStatus(newStatus);
 
-    logger.info("AI Worker completed", { ticketId, messageId: aiMessage.id, newStatus });
+      await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { status: newStatus },
+      });
 
-    return { aiMessage, newStatus };
-  },
-  { connection: redisConnectionOptions }
-);
+      // Emit real-time update
+      try {
+        const io = getIO();
+        io.to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
+        io.to(`ticket-${ticketId}`).emit("message-added", aiMessage);
+        io.to(`ticket-${ticketId}`).emit("ai_reply", aiMessage);
+        io.to(`org-${orgId}`).emit("ticketUpdated", { ticketId, status: apiStatus });
+        io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: apiStatus });
+        io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: apiStatus });
+      } catch (error) {
+        logger.warn("Failed to emit Socket.io event", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
-aiWorker.on("failed", (job, err) => {
-  logger.error("AI Worker failed", { jobId: job?.id, error: err.message });
-});
+      logger.info("AI Worker completed", { ticketId, messageId: aiMessage.id, newStatus });
+
+      return { aiMessage, newStatus };
+    },
+    { connection: redisConnectionOptions }
+  );
+
+  aiWorker.on("failed", (job, err) => {
+    logger.error("AI Worker failed", { jobId: job?.id, error: err.message });
+  });
+} else {
+  logger.warn("AI Worker disabled via environment configuration");
+}
 
 export default aiWorker;
