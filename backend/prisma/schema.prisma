@@ -13,6 +13,8 @@ model Organization {
   subscriptionTier String          @default("FREE")
   aiEnabled        Boolean         @default(true)
   users            User[]
+  memberships      OrganizationMember[]
+  invites          Invite[]
   customers        Customer[]
   tickets          Ticket[]
   knowledgeBase    KnowledgeBase[]
@@ -27,6 +29,8 @@ model User {
   password  String
   role      Role
   agent     Agent?
+  memberships OrganizationMember[]
+  acceptedInvites Invite[] @relation("InviteAcceptedByUser")
   org       Organization @relation(fields: [orgId], references: [id])
   createdAt DateTime     @default(now())
   tickets   Ticket[]
@@ -72,6 +76,13 @@ enum Role {
   CUSTOMER
 }
 
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
 enum TicketStatus {
   OPEN
   AI_HANDLING
@@ -114,6 +125,38 @@ model Agent {
   lastAssignedAt  DateTime?
   assignedTickets Ticket[]
   user            User      @relation(fields: [userId], references: [id])
+}
+
+model OrganizationMember {
+  id        String       @id @default(uuid())
+  userId    String
+  orgId     String
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  org  Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+}
+
+model Invite {
+  id               String       @id @default(uuid())
+  orgId            String
+  email            String
+  role             Role         @default(AGENT)
+  token            String       @unique
+  status           InviteStatus @default(PENDING)
+  expiresAt        DateTime
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  createdAt        DateTime     @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+  acceptedByUser User? @relation("InviteAcceptedByUser", fields: [acceptedByUserId], references: [id])
+
+  @@index([orgId])
+  @@index([email])
 }
 
 model AgentLog {

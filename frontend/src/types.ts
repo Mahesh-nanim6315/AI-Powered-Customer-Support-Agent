@@ -22,6 +22,7 @@ export interface LoginResponse {
     orgId: string;
     role: UserRole;
   };
+  organizations?: Organization[];
 }
 
 export interface RegisterRequest {

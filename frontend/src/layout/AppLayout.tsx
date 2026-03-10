@@ -13,6 +13,7 @@ import {
   Circle,
 } from 'lucide-react';
 import { useRealtime } from '../context/RealtimeContext';
+import { useOrg } from '../context/OrgContext';
 import '../layout.css';
 import type { UserRole } from '../types';
 
@@ -25,6 +26,7 @@ interface AppLayoutProps extends PropsWithChildren {
 export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const realtime = useRealtime();
+  const { organizations, activeOrgId, switchOrg, isLoading } = useOrg();
   const displayName = (userEmail.split('@')[0] || 'User')
     .replace(/[._-]+/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
@@ -129,8 +131,23 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
           <div className="app-header-title">Support Console</div>
           <div className="app-header-user">
             <div className="app-header-user-name">{displayName}</div>
-            {/* <div className="app-header-user-role">{userRole}</div> */}
+            <div className="app-header-user-role">{userRole}</div>
           </div>
+          {organizations.length > 1 && (
+            <select
+              className="app-header-org-switcher"
+              value={activeOrgId}
+              onChange={(e) => switchOrg(e.target.value)}
+              disabled={isLoading}
+              aria-label="Switch organization"
+            >
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="app-header-status">
             <div
               className={`connection-status ${realtime.isConnected ? 'connected' : 'disconnected'}`}

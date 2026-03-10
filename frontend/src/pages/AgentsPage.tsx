@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import * as useAgentsHooks from '../hooks/useAgents';
 import { useRealtime } from '../context/RealtimeContext';
-import { Card, Badge, Spinner, Alert, Button, Modal, Input, TextArea } from '../components';
+import { Card, Badge, Spinner, Alert, Button, Modal, Input, Select } from '../components';
 import { Activity, Plus, Edit2, Trash2 } from 'lucide-react';
 import type { Agent } from '../types';
+import { authService } from '../services/auth.service';
 import '../page.css';
 
 export function AgentsPage() {
@@ -19,6 +20,12 @@ export function AgentsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('AGENT');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [isInviting, setIsInviting] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -56,6 +63,19 @@ export function AgentsPage() {
           <p className="page-subtitle">Manage your support team</p>
         </div>
         {userRole === 'ADMIN' && (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setInviteEmail('');
+                setInviteRole('AGENT');
+                setInviteError(null);
+                setInviteSuccess(null);
+                setIsInviteModalOpen(true);
+              }}
+            >
+              Invite Agent
+            </Button>
             <Button onClick={() => {
               setFormData({ email: '', password: '', specialization: '' });
               setIsCreateModalOpen(true);
@@ -63,6 +83,7 @@ export function AgentsPage() {
               <Plus size={18} />
               New Agent
             </Button>
+          </div>
         )}
       </div>
 
@@ -170,6 +191,66 @@ export function AgentsPage() {
           <Input label="Email *" type="email" value={formData.email} onChange={(e) => setFormData(prev => ({...prev, email: e.target.value}))} />
           <Input label="Temporary Password *" type="password" value={formData.password} onChange={(e) => setFormData(prev => ({...prev, password: e.target.value}))} />
           <Input label="Specialization" placeholder="e.g. Billing, Technical" value={formData.specialization} onChange={(e) => setFormData(prev => ({...prev, specialization: e.target.value}))} />
+        </div>
+      </Modal>
+
+      {/* INVITE AGENT MODAL */}
+      <Modal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        title="Invite Team Member"
+        actions={
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setIsInviteModalOpen(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                setInviteError(null);
+                setInviteSuccess(null);
+                setIsInviting(true);
+                try {
+                  await authService.invite(inviteEmail, inviteRole);
+                  setInviteSuccess('Invite sent successfully.');
+                  setInviteEmail('');
+                } catch (error: any) {
+                  setInviteError(error?.message || 'Failed to send invite.');
+                } finally {
+                  setIsInviting(false);
+                }
+              }}
+              disabled={isInviting || !inviteEmail}
+            >
+              {isInviting ? 'Sending...' : 'Send Invite'}
+            </Button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {inviteError && (
+            <Alert type="warning" title="Invite Error">
+              {inviteError}
+            </Alert>
+          )}
+          {inviteSuccess && (
+            <Alert type="info" title="Invite Sent">
+              {inviteSuccess}
+            </Alert>
+          )}
+          <Input
+            label="Email *"
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+          />
+          <Select
+            label="Role"
+            options={[
+              { value: 'AGENT', label: 'Agent' },
+              { value: 'ADMIN', label: 'Admin' },
+              { value: 'CUSTOMER', label: 'Customer' },
+            ]}
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value)}
+          />
         </div>
       </Modal>
 

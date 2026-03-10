@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RealtimeProvider } from './context/RealtimeContext';
+import { OrgProvider } from './context/OrgContext';
 import { AppLayout } from './layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TicketsPage } from './pages/TicketsPage';
 import { CustomersPage } from './pages/CustomersPage';
@@ -112,29 +114,41 @@ function App() {
                 )
               }
             />
+            <Route
+              path="/accept-invite"
+              element={
+                <AcceptInvitePage
+                  onAuthenticated={(authUser) => {
+                    setUser(authUser);
+                  }}
+                />
+              }
+            />
             <Route path="/signup" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         ) : (
           <RealtimeProvider token={user.token}>
-            <AppLayout
-              userEmail={user.email}
-              userRole={user.role}
-              onLogout={() => {
-                setUser(null);
-              }}
-            >
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/tickets" element={<TicketsPage user={user} />} />
-                <Route path="/customers" element={<CustomersPage />} />
-                <Route path="/agents" element={<AgentsPage />} />
-                <Route path="/knowledge" element={<KnowledgePage />} />
-                <Route path="/ai-suggestions" element={<AiSuggestionsPage />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </AppLayout>
+            <OrgProvider user={user} onUserUpdate={setUser}>
+              <AppLayout
+                userEmail={user.email}
+                userRole={user.role}
+                onLogout={() => {
+                  setUser(null);
+                }}
+              >
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/tickets" element={<TicketsPage user={user} />} />
+                  <Route path="/customers" element={<CustomersPage />} />
+                  <Route path="/agents" element={<AgentsPage />} />
+                  <Route path="/knowledge" element={<KnowledgePage />} />
+                  <Route path="/ai-suggestions" element={<AiSuggestionsPage />} />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </AppLayout>
+            </OrgProvider>
           </RealtimeProvider>
         )}
       </BrowserRouter>

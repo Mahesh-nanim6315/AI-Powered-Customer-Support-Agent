@@ -193,6 +193,15 @@
   text-transform: uppercase;
 }
 
+.app-header-org-switcher {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
 .app-header-logout {
   background: none;
   border: none;
