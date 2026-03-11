@@ -90,6 +90,7 @@ export interface Customer {
   orgId: string;
   email: string;
   name: string;
+  status: "PENDING" | "ACTIVE";
   metadata?: Record<string, any>;
   createdAt: string;
   tickets?: Ticket[];
@@ -99,6 +100,16 @@ export interface CreateCustomerRequest {
   email: string;
   name: string;
   metadata?: Record<string, any>;
+}
+
+export interface AcceptCustomerInviteRequest {
+  token: string;
+  password: string;
+}
+
+export interface AcceptCustomerInviteResponse {
+  message: string;
+  customer: Customer;
 }
 
 // ============ AGENTS ============
@@ -140,12 +151,14 @@ export interface KnowledgeBase {
   id: string;
   orgId: string;
   title: string;
+  category: string;
   content: string;
   createdAt: string;
 }
 
 export interface CreateKnowledgeRequest {
   title: string;
+  category: string;
   content: string;
 }
 

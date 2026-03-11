@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCustomers, useCreateCustomer } from '../hooks/useCustomers';
 import { useRealtime } from '../context/RealtimeContext';
-import { Card, Button, Input, Spinner, Modal, Alert } from '../components';
+import { Card, Button, Input, Spinner, Modal, Alert, Badge } from '../components';
 import { Plus, Search } from 'lucide-react';
 import '../page.css';
 
@@ -12,6 +12,7 @@ export function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [showLiveNotification, setShowLiveNotification] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,14 +43,20 @@ export function CustomersPage() {
       return;
     }
     try {
+      setCreateError(null);
       await createMutation.mutateAsync({
         name: formData.name,
         email: formData.email,
       });
       setIsCreateModalOpen(false);
       setFormData({ name: '', email: '' });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create customer:', error);
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to create customer';
+      setCreateError(message);
     }
   };
 
@@ -110,6 +117,9 @@ export function CustomersPage() {
                   <h3 className="ticket-title">{customer.name}</h3>
                   <p className="ticket-customer">{customer.email}</p>
                   <div className="ticket-meta">
+                    <Badge variant={customer.status === 'ACTIVE' ? 'success' : 'warning'}>
+                      {customer.status}
+                    </Badge>
                     <span>Joined {new Date(customer.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -139,6 +149,11 @@ export function CustomersPage() {
           </div>
         }
       >
+        {createError && (
+          <Alert type="error" title="Customer Create Failed" onClose={() => setCreateError(null)}>
+            {createError}
+          </Alert>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <Input
             label="Name"

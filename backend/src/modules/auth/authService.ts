@@ -78,6 +78,20 @@ export class AuthService {
             throw new Error("Invalid credentials");
         }
 
+        if (user.role === "CUSTOMER") {
+            await prisma.customer.updateMany({
+                where: {
+                    orgId: user.orgId,
+                    email: user.email,
+                    userId: null
+                },
+                data: {
+                    userId: user.id,
+                    status: "ACTIVE"
+                }
+            });
+        }
+
         // Ensure the user has at least one org membership
         const existingMembership = await prisma.organizationMember.findFirst({
             where: { userId: user.id }
@@ -332,7 +346,10 @@ export class AuthService {
             data: {
                 email,
                 name,
-                orgId
+                orgId,
+                password: hashedPassword,
+                status: "ACTIVE",
+                userId: user.id
             }
         });
 

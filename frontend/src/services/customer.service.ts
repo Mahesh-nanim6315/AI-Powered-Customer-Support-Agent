@@ -1,5 +1,5 @@
 import { apiClient } from '../lib/api-client';
-import type { Customer, CreateCustomerRequest } from '../types';
+import type { Customer, CreateCustomerRequest, AcceptCustomerInviteRequest, AcceptCustomerInviteResponse } from '../types';
 
 export const customersService = {
     async getAll(): Promise<Customer[]> {
@@ -24,5 +24,9 @@ export const customersService = {
 
     async search(query: string): Promise<Customer[]> {
         return apiClient.get<Customer[]>(`/customers?search=${encodeURIComponent(query)}`);
+    },
+
+    async acceptInvite(data: AcceptCustomerInviteRequest): Promise<AcceptCustomerInviteResponse> {
+        return apiClient.post<AcceptCustomerInviteResponse>('/customers/accept-invite', data);
     },
 };

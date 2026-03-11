@@ -2,10 +2,11 @@ import { useQuery, useMutation, useQueryClient, UseQueryResult, UseMutationResul
 import { customersService } from '../services/customer.service';
 import type { Customer, CreateCustomerRequest } from '../types';
 
-export function useCustomers(): UseQueryResult<Customer[]> {
+export function useCustomers(enabled = true): UseQueryResult<Customer[]> {
     return useQuery({
         queryKey: ['customers'],
         queryFn: () => customersService.getAll(),
+        enabled,
     });
 }
 

@@ -6,13 +6,19 @@ import { useRealtime } from '../context/RealtimeContext';
 import { Card, Spinner, Alert } from '../components';
 import { TrendingUp, Users, Zap, MessageSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import type { AuthUser } from '../types';
 import '../dashboard.css';
 
-export function DashboardPage() {
-  const analyticsQuery = useDashboardAnalytics();
+interface DashboardPageProps {
+  user?: AuthUser | null;
+}
+
+export function DashboardPage({ user }: DashboardPageProps) {
+  const isCustomer = user?.role === 'CUSTOMER';
+  const analyticsQuery = useDashboardAnalytics(!isCustomer);
   const ticketsQuery = useTickets();
-  const agentsQuery = useAgents();
-  const customersQuery = useCustomers();
+  const agentsQuery = useAgents(!isCustomer);
+  const customersQuery = useCustomers(!isCustomer);
   const realtime = useRealtime();
   const [showLiveNotification, setShowLiveNotification] = useState(false);
 

@@ -14,7 +14,7 @@ interface TicketsPageProps {
 
 export function TicketsPage({ user }: TicketsPageProps) {
   const ticketsQuery = useTickets();
-  const customersQuery = useCustomers();
+  const customersQuery = useCustomers(user?.role !== 'CUSTOMER');
   const isAgent = user?.role === 'AGENT';
   const unassignedTicketsQuery = useUnassignedTickets(Boolean(isAgent));
   const createTicketMutation = useCreateTicket();

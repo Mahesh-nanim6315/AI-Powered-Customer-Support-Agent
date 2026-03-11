@@ -20,8 +20,9 @@ export class EmailService {
     html: string
   ): Promise<void> {
     try {
+      const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@example.com";
       await this.transporter.sendMail({
-        from: `"Support Team" <${process.env.SMTP_USER}>`,
+        from: `"Support Team" <${fromAddress}>`,
         to,
         subject,
         html,
@@ -53,6 +54,31 @@ export class EmailService {
     await this.sendEmail(
       customerEmail,
       "Your Refund Link",
+      html
+    );
+  }
+
+  /**
+   * Send customer invite email
+   */
+  static async sendCustomerInviteEmail(
+    customerName: string,
+    customerEmail: string,
+    inviteUrl: string
+  ) {
+    const safeName = customerName || "there";
+    const html = `
+      <h2>You're invited to Support Portal</h2>
+      <p>Hello ${safeName},</p>
+      <p>Your account has been created.</p>
+      <p>Click the link below to activate your account and set a password:</p>
+      <a href="${inviteUrl}" target="_blank">${inviteUrl}</a>
+      <p>This invite expires in 7 days.</p>
+    `;
+
+    await this.sendEmail(
+      customerEmail,
+      "You're invited to Support Portal",
       html
     );
   }

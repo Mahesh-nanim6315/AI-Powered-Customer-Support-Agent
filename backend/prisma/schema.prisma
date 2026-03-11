@@ -16,6 +16,7 @@ model Organization {
   memberships      OrganizationMember[]
   invites          Invite[]
   customers        Customer[]
+  customerInvites  CustomerInviteToken[]
   tickets          Ticket[]
   knowledgeBase    KnowledgeBase[]
   createdAt        DateTime        @default(now())
@@ -29,6 +30,7 @@ model User {
   password  String
   role      Role
   agent     Agent?
+  customerProfile Customer?
   memberships OrganizationMember[]
   acceptedInvites Invite[] @relation("InviteAcceptedByUser")
   org       Organization @relation(fields: [orgId], references: [id])
@@ -41,10 +43,17 @@ model Customer {
   orgId     String
   email     String
   name      String
+  password  String?
+  userId    String?      @unique
+  status    CustomerStatus @default(PENDING)
   metadata  Json?
   org       Organization @relation(fields: [orgId], references: [id])
+  user      User?        @relation(fields: [userId], references: [id])
   tickets   Ticket[]
+  inviteTokens CustomerInviteToken[]
   createdAt DateTime     @default(now())
+
+  @@unique([orgId, email])
 }
 
 model Ticket {
@@ -97,6 +106,28 @@ enum Priority {
   LOW
   MEDIUM
   HIGH
+}
+
+enum CustomerStatus {
+  PENDING
+  ACTIVE
+}
+
+model CustomerInviteToken {
+  id        String   @id @default(uuid())
+  orgId     String
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  customerId String?
+  customer  Customer? @relation(fields: [customerId], references: [id])
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@index([email])
+  @@index([expiresAt])
 }
 
 model TicketMessage {
@@ -186,10 +217,13 @@ model TicketAnalytics {
   ticket Ticket @relation(fields: [ticketId], references: [id])
 }
 
+
+
 model KnowledgeBase {
   id        String   @id @default(uuid())
   orgId     String
   title     String
+  category  String   @default("General")
   content   String
   createdAt DateTime @default(now())
 

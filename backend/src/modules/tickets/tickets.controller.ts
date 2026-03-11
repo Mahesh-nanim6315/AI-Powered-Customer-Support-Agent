@@ -19,7 +19,12 @@ export class TicketController {
         const customer = await prisma.customer.findFirst({
           where: {
             orgId: req.user.orgId,
-            email: req.user.email // Match by email
+            userId: req.user.id
+          }
+        }) ?? await prisma.customer.findFirst({
+          where: {
+            orgId: req.user.orgId,
+            email: req.user.email
           }
         });
 
@@ -75,14 +80,22 @@ export class TicketController {
 
     // If user is CUSTOMER, only show their own tickets
     if (req.user.role === "CUSTOMER") {
-      // For customers, we need to find tickets where they are the creator
-      // or where they are associated as the customer
+      // For customers, only show their own tickets
       const prisma = require("../../config/database").default;
-      tickets = await prisma.ticket.findMany({
+      const customer = await prisma.customer.findFirst({
         where: {
           orgId: req.user.orgId,
-          createdByUserId: req.user.id
+          userId: req.user.id
         },
+        select: { id: true }
+      });
+
+      const whereClause = customer
+        ? { orgId: req.user.orgId, customerId: customer.id }
+        : { orgId: req.user.orgId, createdByUserId: req.user.id };
+
+      tickets = await prisma.ticket.findMany({
+        where: whereClause,
         include: {
           customer: true,
           assignedAgent: {

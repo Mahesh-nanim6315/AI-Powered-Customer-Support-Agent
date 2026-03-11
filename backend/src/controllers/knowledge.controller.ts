@@ -87,6 +87,7 @@ export const createKnowledgeArticle = async (req: Request, res: Response) => {
 
     const title = String(req.body?.title ?? "").trim();
     const content = String(req.body?.content ?? "").trim();
+    const category = String(req.body?.category ?? "").trim() || "General";
 
     if (!title || !content) {
       return res.status(400).json({ error: "Title and content are required" });
@@ -97,6 +98,7 @@ export const createKnowledgeArticle = async (req: Request, res: Response) => {
         orgId,
         title,
         content,
+        category,
       },
     });
 
@@ -115,6 +117,7 @@ export const createKnowledgeArticle = async (req: Request, res: Response) => {
                 text: chunk,
                 orgId,
                 title,
+                category,
                 knowledgeId: article.id,
               },
             },

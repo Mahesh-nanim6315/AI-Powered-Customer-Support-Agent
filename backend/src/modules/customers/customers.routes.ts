@@ -5,6 +5,8 @@ import { CustomersController } from "./customers.controller";
 
 const router = Router();
 
+router.post("/accept-invite", CustomersController.acceptInvite);
+
 router.use(authMiddleware);
 
 router.get("/", allowRoles("ADMIN", "AGENT"), CustomersController.list);

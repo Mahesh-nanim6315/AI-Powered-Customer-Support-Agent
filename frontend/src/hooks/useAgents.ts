@@ -2,10 +2,11 @@ import { useQuery, useMutation, useQueryClient, UseQueryResult, UseMutationResul
 import { agentsService } from '../services/agent.service';
 import type { Agent } from '../types';
 
-export function useAgents(): UseQueryResult<Agent[]> {
+export function useAgents(enabled = true): UseQueryResult<Agent[]> {
     return useQuery({
         queryKey: ['agents'],
         queryFn: () => agentsService.getAll(),
+        enabled,
     });
 }
 

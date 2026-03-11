@@ -6,3 +6,8 @@ export const createCustomerSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
+export const acceptCustomerInviteSchema = z.object({
+  token: z.string().min(10),
+  password: z.string().min(6),
+});
+

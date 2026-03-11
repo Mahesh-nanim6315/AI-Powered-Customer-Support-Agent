@@ -7,6 +7,7 @@ import { AppLayout } from './layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
+import { CustomerInvitePage } from './pages/CustomerInvitePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TicketsPage } from './pages/TicketsPage';
 import { CustomersPage } from './pages/CustomersPage';
@@ -81,6 +82,11 @@ function App() {
     console.log('✅ User persisted with token');
   }, [user, bootstrapped]);
 
+  useEffect(() => {
+    if (!bootstrapped) return;
+    queryClient.clear();
+  }, [user?.id, user?.orgId, user?.role, user?.token, bootstrapped]);
+
   if (!bootstrapped) {
     return (
       <div className="app-loader">
@@ -124,6 +130,7 @@ function App() {
                 />
               }
             />
+            <Route path="/customer-invite" element={<CustomerInvitePage />} />
             <Route path="/signup" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
@@ -139,12 +146,13 @@ function App() {
               >
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/dashboard" element={<DashboardPage user={user} />} />
                   <Route path="/tickets" element={<TicketsPage user={user} />} />
                   <Route path="/customers" element={<CustomersPage />} />
                   <Route path="/agents" element={<AgentsPage />} />
                   <Route path="/knowledge" element={<KnowledgePage />} />
                   <Route path="/ai-suggestions" element={<AiSuggestionsPage />} />
+                  <Route path="/customer-invite" element={<CustomerInvitePage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </AppLayout>
