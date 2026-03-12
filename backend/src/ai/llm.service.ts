@@ -12,73 +12,59 @@ interface LLMTool {
 }
 
 export class LLMService {
-  private apiKey: string;
-  private model: string;
   private baseURL: string;
+  private model: string;
+  private apiKey?: string;
 
   constructor() {
-    this.apiKey = process.env.GEMINI_API_KEY || "";
-    this.model = "gemini-1.5-flash";
-    this.baseURL =
-      "https://generativelanguage.googleapis.com/v1beta/models";
+    this.baseURL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    this.model = process.env.OLLAMA_MODEL || "llama3";
+    this.apiKey = process.env.OLLAMA_API_KEY;
   }
 
-  /**
-   * Basic text generation
-   */
   async generate(messages: LLMMessage[]): Promise<string> {
-    try {
-      const response = await axios.post(
-        `${this.baseURL}/${this.model}:generateContent?key=${this.apiKey}`,
-        {
-          contents: messages.map((msg) => ({
-            role: msg.role,
-            parts: [{ text: msg.content }],
-          })),
-        }
-      );
+    const headers: any = {
+      "Content-Type": "application/json",
+    };
 
-      const text =
-        response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      return text || "No response generated.";
-    } catch (error: any) {
-      console.error("LLM Error:", error.response?.data || error.message);
-      throw new Error("Failed to generate LLM response");
+    if (this.apiKey) {
+      headers["Authorization"] = `Bearer ${this.apiKey}`;
     }
+
+    const response = await axios.post(
+      `${this.baseURL}/api/chat`,
+      {
+        model: this.model,
+        messages,
+        stream: false,
+      },
+      { headers }
+    );
+
+    return response.data?.message?.content || "No response generated.";
   }
 
-  /**
-   * Tool calling simulation (Agent mode)
-   */
-  async generateWithTools(
-    messages: LLMMessage[],
-    tools: LLMTool[]
-  ): Promise<any> {
-    try {
-      const response = await axios.post(
-        `${this.baseURL}/${this.model}:generateContent?key=${this.apiKey}`,
-        {
-          contents: messages.map((msg) => ({
-            role: msg.role,
-            parts: [{ text: msg.content }],
-          })),
-          tools: tools.map((tool) => ({
-            functionDeclarations: [
-              {
-                name: tool.name,
-                description: tool.description,
-                parameters: tool.parameters,
-              },
-            ],
-          })),
-        }
-      );
+  async generateWithTools(messages: LLMMessage[], tools: LLMTool[]) {
+    const toolDescriptions = tools
+      .map(
+        (tool) =>
+          `Tool: ${tool.name}\nDescription: ${tool.description}\nParameters: ${JSON.stringify(
+            tool.parameters
+          )}`
+      )
+      .join("\n\n");
 
-      return response.data;
-    } catch (error: any) {
-      console.error("LLM Tool Error:", error.response?.data || error.message);
-      throw new Error("Failed to generate LLM response with tools");
-    }
+    const systemPrompt = {
+      role: "system",
+      content: `You are an AI agent. You can use the following tools:\n\n${toolDescriptions}`,
+    };
+
+    const response = await axios.post(`${this.baseURL}/api/chat`, {
+      model: this.model,
+      messages: [systemPrompt, ...messages],
+      stream: false,
+    });
+
+    return response.data?.message?.content;
   }
 }

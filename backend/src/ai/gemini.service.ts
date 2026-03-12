@@ -1,31 +1,32 @@
-﻿import { GoogleGenerativeAI } from "@google/generative-ai";
+﻿import axios from "axios";
 
-const apiKey = process.env.GEMINI_API_KEY;
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+const MODEL = process.env.OLLAMA_MODEL || "llama3";
+const API_KEY = process.env.OLLAMA_API_KEY;
 
 export async function generateGeminiResponse(prompt: string) {
-  if (!genAI) {
-    return "AI is currently unavailable (missing GEMINI_API_KEY).";
-  }
+  try {
+    const headers: any = {
+      "Content-Type": "application/json",
+    };
 
-  const configuredModel = process.env.GEMINI_MODEL;
-  const fallbackModels = Array.from(new Set([
-    configuredModel,
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-  ].filter(Boolean) as string[]));
-
-  for (const modelName of fallbackModels) {
-    try {
-      const model = genAI.getGenerativeModel({ model: modelName });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
-    } catch (err: any) {
-      console.error(`Gemini generateContent failed for model ${modelName}:`, err?.message || err);
+    if (API_KEY) {
+      headers["Authorization"] = `Bearer ${API_KEY}`;
     }
-  }
 
-  return "I’m having trouble accessing our AI assistant right now. A human agent will help you shortly.";
+    const response = await axios.post(
+      `${BASE_URL}/api/generate`,
+      {
+        model: MODEL,
+        prompt,
+        stream: false,
+      },
+      { headers }
+    );
+
+    return response.data.response;
+  } catch (err: any) {
+    console.error("Ollama Error:", err?.message || err);
+    return "I’m having trouble accessing our AI assistant right now. A human agent will help you shortly.";
+  }
 }
