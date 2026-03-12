@@ -17,7 +17,7 @@
     font-family: inherit;
     font-size: 1rem;
     resize: vertical;
-    min-height: 120px;
+    min-height: 40px;
     transition: all 0.2s ease;
 }
 
