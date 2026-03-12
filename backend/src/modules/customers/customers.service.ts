@@ -121,16 +121,23 @@ export class CustomersService {
         throw new Error("Email already belongs to a non-customer account");
       }
 
-      const user =
-        existingUser ??
-        (await tx.user.create({
-          data: {
-            email: invite.email,
-            password: hashedPassword,
-            role: "CUSTOMER",
-            orgId: invite.orgId,
-          },
-        }));
+      if (existingUser && existingUser.orgId !== invite.orgId) {
+        throw new Error("Email already belongs to a customer in another organization");
+      }
+
+      const user = existingUser
+        ? await tx.user.update({
+            where: { id: existingUser.id },
+            data: { password: hashedPassword },
+          })
+        : await tx.user.create({
+            data: {
+              email: invite.email,
+              password: hashedPassword,
+              role: "CUSTOMER",
+              orgId: invite.orgId,
+            },
+          });
 
       await tx.organizationMember.upsert({
         where: {
