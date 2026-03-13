@@ -18,7 +18,7 @@ export class AnalyticsService {
             where: {
                 orgId,
                 status: {
-                    in: ["OPEN", "AI_HANDLING", "IN_PROGRESS"] as any,
+                    in: ["OPEN", "AI_IN_PROGRESS", "IN_PROGRESS"] as any,
                 },
             },
         });

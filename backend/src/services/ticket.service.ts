@@ -1,6 +1,7 @@
 import { prisma } from "../config/db";
 import { AssignmentService } from "./assignment.service";
 import { addAIJob } from "../queues/bullmq";
+import { toDbStatus } from "../modules/tickets/ticketStatus.lifecycle";
 
 export class TicketService {
   /**
@@ -24,7 +25,7 @@ export class TicketService {
         },
       });
 
-      console.log("✅ Ticket created:", { ticketId: ticket.id, subject: ticket.subject });
+      console.log("Ticket created:", { ticketId: ticket.id, subject: ticket.subject });
 
       // Auto-assign after creation
       await AssignmentService.assignTicket(ticket.id, data.orgId);
@@ -32,55 +33,60 @@ export class TicketService {
       // Trigger AI processing for new tickets
       await prisma.ticket.update({
         where: { id: ticket.id },
-        data: { status: "AI_HANDLING" },
+        data: { status: toDbStatus("AI_IN_PROGRESS") },
       });
 
-      console.log("✅ Ticket status updated to AI_HANDLING");
+      console.log("Ticket status updated to AI_IN_PROGRESS");
 
       // For now, process AI synchronously until Redis is configured
       try {
-        console.log("🤖 Starting AI processing...");
-        const { runAgent } = await import("../services/agent.service");
-        const aiReply = await runAgent(data.description || data.subject, data.orgId, ticket.id);
+        console.log("Starting AI processing...");
+        const { runAgentDetailed } = await import("../services/agent.service");
+        const aiRun = await runAgentDetailed(
+          data.description || data.subject,
+          data.orgId,
+          ticket.id
+        );
 
-        console.log("✅ AI response generated:", { length: aiReply.length });
+        console.log("AI response generated:", { length: aiRun.reply.length });
 
         // Save AI response
         const aiMessage = await prisma.ticketMessage.create({
           data: {
             ticketId: ticket.id,
             role: "AI",
-            content: aiReply,
+            content: aiRun.reply,
           },
         });
 
         // Update ticket status
+        const nextStatus = aiRun.shouldEscalate ? "ESCALATED" : "RESOLVED";
         await prisma.ticket.update({
           where: { id: ticket.id },
-          data: { status: "WAITING_FOR_HUMAN" },
+          data: { status: toDbStatus(nextStatus) },
         });
 
-        console.log("✅ Ticket updated with AI response, status: WAITING_FOR_HUMAN");
+        console.log("Ticket updated with AI response, status:", nextStatus);
 
         // Emit real-time updates
         try {
           const { getIO } = await import("../config/socket");
           const io = getIO();
           io.to(`ticket-${ticket.id}`).emit("newMessage", aiMessage);
-          io.to(`org-${data.orgId}`).emit("ticketUpdated", { ticketId: ticket.id, status: "WAITING_FOR_HUMAN" });
-          console.log("✅ Real-time updates emitted");
+          io.to(`org-${data.orgId}`).emit("ticketUpdated", { ticketId: ticket.id, status: nextStatus });
+          console.log("Real-time updates emitted");
         } catch (socketError: any) {
-          console.warn("⚠️ Failed to emit Socket.io event:", socketError?.message || socketError);
+          console.warn("Failed to emit Socket.io event:", socketError?.message || socketError);
         }
 
       } catch (aiError: any) {
-        console.error("❌ AI processing failed:", aiError?.message || aiError);
-        // Fallback: just update status to waiting for human
+        console.error("AI processing failed:", aiError?.message || aiError);
+        // Fallback: escalate to human
         await prisma.ticket.update({
           where: { id: ticket.id },
-          data: { status: "WAITING_FOR_HUMAN" },
+          data: { status: toDbStatus("ESCALATED") },
         });
-        console.log("✅ Fallback: Ticket updated to WAITING_FOR_HUMAN");
+        console.log("Fallback: Ticket updated to ESCALATED");
       }
 
       return ticket;
@@ -139,12 +145,12 @@ export class TicketService {
    */
   static async updateStatus(
     ticketId: string,
-    status: "OPEN" | "AI_HANDLING" | "WAITING_FOR_HUMAN" | "RESOLVED" | "CLOSED"
+    status: "OPEN" | "AI_IN_PROGRESS" | "ESCALATED" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
   ) {
     try {
       return await prisma.ticket.update({
         where: { id: ticketId },
-        data: { status },
+        data: { status: toDbStatus(status) },
       });
     } catch (error: any) {
       console.error("Update Status Error:", error.message);

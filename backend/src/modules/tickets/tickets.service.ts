@@ -38,10 +38,15 @@ export class TicketService {
     io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status: "OPEN" });
 
     // Immediately move to AI handling and queue the first AI response.
-    const aiHandlingTicket = await TicketRepository.updateStatus(ticket.id, orgId, "AI_HANDLING");
+    const aiHandlingTicket = await TicketRepository.updateStatus(
+      ticket.id,
+      orgId,
+      toDbStatus("AI_IN_PROGRESS")
+    );
     if (aiHandlingTicket) {
-      io.to(`org-${orgId}`).emit("ticket-updated", aiHandlingTicket);
-      io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status: "AI_HANDLING" });
+      const apiTicket = normalizeTicketForApi(aiHandlingTicket);
+      io.to(`org-${orgId}`).emit("ticket-updated", apiTicket);
+      io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status: "AI_IN_PROGRESS" });
     }
 
     try {

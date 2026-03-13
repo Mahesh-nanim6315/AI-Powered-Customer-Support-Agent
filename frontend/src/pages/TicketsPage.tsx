@@ -122,7 +122,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
 
   const canUpdateStatus = user?.role === 'ADMIN' || user?.role === 'AGENT';
   const canManageTicket = user?.role === 'ADMIN' || user?.role === 'AGENT' || user?.role === 'CUSTOMER';
-  const statusOptions: TicketStatus[] = ['OPEN', 'AI_HANDLING', 'ESCALATED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+  const statusOptions: TicketStatus[] = ['OPEN', 'AI_IN_PROGRESS', 'ESCALATED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
   const handleCreateTicket = async () => {
     if (!createFormData.customerId || !createFormData.subject) {
@@ -242,10 +242,18 @@ export function TicketsPage({ user }: TicketsPageProps) {
     OPEN: 'danger',
     ESCALATED: 'warning',
     IN_PROGRESS: 'info',
-    WAITING_FOR_HUMAN: 'warning',
-    AI_HANDLING: 'info',
+    AI_IN_PROGRESS: 'info',
     RESOLVED: 'success',
     CLOSED: 'success',
+  };
+
+  const statusLabelMap: Record<string, string> = {
+    OPEN: 'Open',
+    AI_IN_PROGRESS: 'AI In Progress',
+    ESCALATED: 'Escalated',
+    IN_PROGRESS: 'In Progress',
+    RESOLVED: 'Resolved',
+    CLOSED: 'Closed',
   };
 
   const aiModeLabelMap: Record<string, string> = {
@@ -328,7 +336,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
               options={[
                 { value: '', label: 'All Statuses' },
                 { value: 'OPEN', label: 'Open' },
-                { value: 'AI_HANDLING', label: 'AI Handling' },
+                { value: 'AI_IN_PROGRESS', label: 'AI In Progress' },
                 { value: 'ESCALATED', label: 'Escalated' },
                 { value: 'IN_PROGRESS', label: 'In Progress' },
                 { value: 'RESOLVED', label: 'Resolved' },
@@ -372,7 +380,9 @@ export function TicketsPage({ user }: TicketsPageProps) {
                   </div>
                   <div className="ticket-side">
                     <div className="ticket-badges">
-                      <Badge variant={statusColors[ticket.status] as any}>{ticket.status}</Badge>
+                      <Badge variant={statusColors[ticket.status] as any}>
+                        {statusLabelMap[ticket.status] || ticket.status}
+                      </Badge>
                       <Badge variant={priorityColors[ticket.priority] as any}>{ticket.priority}</Badge>
                     </div>
                     <ChevronRight size={20} className="ticket-arrow" />
@@ -439,7 +449,9 @@ export function TicketsPage({ user }: TicketsPageProps) {
                       ))}
                     </select>
                   )}
-                  <Badge variant={statusColors[selectedTicket?.status || 'OPEN'] as any}>{selectedTicket?.status}</Badge>
+                  <Badge variant={statusColors[selectedTicket?.status || 'OPEN'] as any}>
+                    {statusLabelMap[selectedTicket?.status || 'OPEN'] || selectedTicket?.status || 'OPEN'}
+                  </Badge>
                 </div>
               </div>
 

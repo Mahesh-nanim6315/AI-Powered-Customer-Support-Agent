@@ -43,10 +43,9 @@ export interface Organization {
 // ============ TICKETS ============
 export type TicketStatus =
   | "OPEN"
-  | "AI_HANDLING"
+  | "AI_IN_PROGRESS"
   | "ESCALATED"
   | "IN_PROGRESS"
-  | "WAITING_FOR_HUMAN"
   | "RESOLVED"
   | "CLOSED";
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH";

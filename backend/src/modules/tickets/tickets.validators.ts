@@ -12,6 +12,7 @@ export const updateStatusSchema = z.object({
   status: z.string().transform((value) => value.toUpperCase()).refine((value) =>
     [
       "OPEN",
+      "AI_IN_PROGRESS",
       "AI_HANDLING",
       "WAITING_FOR_HUMAN",
       "ESCALATED",

@@ -1,6 +1,6 @@
 export type DbTicketStatus =
   | "OPEN"
-  | "AI_HANDLING"
+  | "AI_IN_PROGRESS"
   | "ESCALATED"
   | "IN_PROGRESS"
   | "WAITING_FOR_HUMAN"
@@ -9,7 +9,7 @@ export type DbTicketStatus =
 
 export type ApiTicketStatus =
   | "OPEN"
-  | "AI_HANDLING"
+  | "AI_IN_PROGRESS"
   | "ESCALATED"
   | "IN_PROGRESS"
   | "RESOLVED"
@@ -17,7 +17,7 @@ export type ApiTicketStatus =
 
 const dbToApi: Record<DbTicketStatus, ApiTicketStatus> = {
   OPEN: "OPEN",
-  AI_HANDLING: "AI_HANDLING",
+  AI_IN_PROGRESS: "AI_IN_PROGRESS",
   ESCALATED: "ESCALATED",
   IN_PROGRESS: "IN_PROGRESS",
   WAITING_FOR_HUMAN: "ESCALATED",
@@ -27,7 +27,7 @@ const dbToApi: Record<DbTicketStatus, ApiTicketStatus> = {
 
 const apiToDb: Record<ApiTicketStatus, DbTicketStatus> = {
   OPEN: "OPEN",
-  AI_HANDLING: "AI_HANDLING",
+  AI_IN_PROGRESS: "AI_IN_PROGRESS",
   ESCALATED: "ESCALATED",
   IN_PROGRESS: "IN_PROGRESS",
   RESOLVED: "RESOLVED",
@@ -40,7 +40,8 @@ export function normalizeApiStatus(input: string): ApiTicketStatus {
   if (value === "IN_PROGRESS") return "IN_PROGRESS";
   if (value === "ESCALATED") return "ESCALATED";
   if (value === "OPEN") return "OPEN";
-  if (value === "AI_HANDLING") return "AI_HANDLING";
+  if (value === "AI_HANDLING") return "AI_IN_PROGRESS";
+  if (value === "AI_IN_PROGRESS") return "AI_IN_PROGRESS";
   if (value === "RESOLVED") return "RESOLVED";
   if (value === "CLOSED") return "CLOSED";
   throw new Error(`Invalid ticket status: ${input}`);
@@ -57,8 +58,8 @@ export function toApiStatus(status: string): ApiTicketStatus {
 }
 
 const allowedTransitions: Record<ApiTicketStatus, ApiTicketStatus[]> = {
-  OPEN: ["AI_HANDLING", "IN_PROGRESS", "ESCALATED", "CLOSED"],
-  AI_HANDLING: ["ESCALATED", "RESOLVED", "IN_PROGRESS", "CLOSED"],
+  OPEN: ["AI_IN_PROGRESS", "IN_PROGRESS", "ESCALATED", "CLOSED"],
+  AI_IN_PROGRESS: ["ESCALATED", "RESOLVED", "IN_PROGRESS", "CLOSED"],
   ESCALATED: ["IN_PROGRESS", "RESOLVED", "CLOSED"],
   IN_PROGRESS: ["ESCALATED", "RESOLVED", "CLOSED"],
   RESOLVED: ["CLOSED", "IN_PROGRESS"],

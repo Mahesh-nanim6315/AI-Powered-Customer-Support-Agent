@@ -1,10 +1,10 @@
 import { Worker } from "bullmq";
 import { isRedisEnabled, redisConnectionOptions } from "../config/redis";
-import { runAgent } from "../services/agent.service";
+import { runAgentDetailed } from "../services/agent.service";
 import { logger } from "../utils/logger";
 import prisma from "../config/database";
 import { getIO } from "../config/socket";
-import { toApiStatus } from "../modules/tickets/ticketStatus.lifecycle";
+import { toApiStatus, toDbStatus } from "../modules/tickets/ticketStatus.lifecycle";
 
 const workersEnabled =
   String(process.env.ENABLE_BULLMQ_WORKERS).toLowerCase() === "true";
@@ -24,24 +24,24 @@ if (workersEnabled && isRedisEnabled && redisConnectionOptions) {
 
       logger.info("AI Worker started", { ticketId, isInitialProcessing });
 
-      const aiReply = await runAgent(message, orgId, ticketId);
+      const aiRun = await runAgentDetailed(message, orgId, ticketId);
 
       // Save AI response as a message
       const aiMessage = await prisma.ticketMessage.create({
         data: {
           ticketId,
           role: "AI",
-          content: aiReply,
+          content: aiRun.reply,
         },
       });
 
       // Update ticket status based on processing type
-      const newStatus = isInitialProcessing ? "ESCALATED" : "RESOLVED";
+      const newStatus = aiRun.shouldEscalate ? "ESCALATED" : "RESOLVED";
       const apiStatus = toApiStatus(newStatus);
 
       await prisma.ticket.update({
         where: { id: ticketId },
-        data: { status: newStatus },
+        data: { status: toDbStatus(newStatus) },
       });
 
       // Emit real-time update

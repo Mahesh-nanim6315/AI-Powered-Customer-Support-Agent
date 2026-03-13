@@ -3,10 +3,9 @@ export {};
 declare global {
   type TicketStatus =
     | "OPEN"
-    | "AI_HANDLING"
+    | "AI_IN_PROGRESS"
     | "ESCALATED"
     | "IN_PROGRESS"
-    | "WAITING_FOR_HUMAN"
     | "RESOLVED"
     | "CLOSED";
 
