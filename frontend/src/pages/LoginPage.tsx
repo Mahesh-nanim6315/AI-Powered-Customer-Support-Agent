@@ -47,7 +47,7 @@ export function LoginPage({ onAuthenticated, onGoToSignup }: LoginPageProps) {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <h1 className="auth-title">Chitti AI</h1>
+          <h1 className="auth-title">ZenDesk AI</h1>
           <p className="auth-subtitle">Customer Support Intelligence Platform</p>
         </div>
 
