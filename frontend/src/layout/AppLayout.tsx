@@ -11,6 +11,9 @@ import {
   X,
   Lightbulb,
   Circle,
+  BarChart3,
+  Settings,
+  FileText,
 } from 'lucide-react';
 import { useRealtime } from '../context/RealtimeContext';
 import { useOrg } from '../context/OrgContext';
@@ -66,6 +69,24 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
       label: 'AI Suggestions',
       path: '/ai-suggestions',
       allowedRoles: ['ADMIN', 'AGENT'],
+    },
+    {
+      icon: BarChart3,
+      label: 'Analytics',
+      path: '/analytics',
+      allowedRoles: ['ADMIN'],
+    },
+    {
+      icon: Settings,
+      label: 'AI Settings',
+      path: '/ai-settings',
+      allowedRoles: ['ADMIN'],
+    },
+    {
+      icon: FileText,
+      label: 'Logs',
+      path: '/logs',
+      allowedRoles: ['ADMIN'],
     },
   ];
 

@@ -1,5 +1,5 @@
 import { apiClient } from '../lib/api-client';
-import type { DashboardAnalytics, TicketAnalytics } from '../types';
+import type { DashboardAnalytics, TicketAnalytics, AdminAnalyticsOverview, TicketTrends, AgentPerformance } from '../types';
 
 export const analyticsService = {
     async getDashboardAnalytics(): Promise<DashboardAnalytics> {
@@ -15,5 +15,18 @@ export const analyticsService = {
         if (dateFrom) params.append('from', dateFrom);
         if (dateTo) params.append('to', dateTo);
         return apiClient.get(`/analytics/metrics?${params.toString()}`);
+    },
+
+    // Admin analytics endpoints
+    async getAdminOverview(): Promise<AdminAnalyticsOverview> {
+        return apiClient.get<AdminAnalyticsOverview>('/analytics/admin/overview');
+    },
+
+    async getTicketTrends(days: number = 30): Promise<TicketTrends> {
+        return apiClient.get<TicketTrends>(`/analytics/admin/ticket-trends?days=${days}`);
+    },
+
+    async getAgentPerformance(): Promise<AgentPerformance[]> {
+        return apiClient.get<AgentPerformance[]>('/analytics/admin/agent-performance');
     },
 };

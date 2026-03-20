@@ -177,3 +177,32 @@ export interface DashboardAnalytics {
   aiResolutionRate: number;
   customerSatisfaction: number;
 }
+
+export interface AdminAnalyticsOverview {
+  totalTickets: number;
+  activeTickets: number;
+  aiResolutionRate: number;
+  agentResolutionRate: number;
+  avgResponseTime: number;
+  csat: number;
+  escalationRate: number;
+  activeAgents: number;
+}
+
+export interface TicketTrends {
+  [date: string]: {
+    created: number;
+    resolved: number;
+  };
+}
+
+export interface AgentPerformance {
+  agentId: string;
+  email: string;
+  totalTickets: number;
+  resolvedTickets: number;
+  resolutionRate: number;
+  avgResolutionTime: number;
+  busyStatus: boolean;
+  activeTickets: number;
+}

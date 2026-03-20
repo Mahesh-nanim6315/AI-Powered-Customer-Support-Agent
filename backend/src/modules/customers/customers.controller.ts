@@ -15,7 +15,7 @@ export class CustomersController {
       return res.status(201).json(result);
     } catch (error: any) {
       if (error instanceof ZodError) {
-        return res.status(400).json({ message: error.errors[0]?.message || "Invalid request" });
+        return res.status(400).json({ message: error.issues[0]?.message || "Invalid request" });
       }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         return res.status(409).json({ message: "Customer already exists" });

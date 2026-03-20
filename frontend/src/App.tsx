@@ -14,6 +14,9 @@ import { CustomersPage } from './pages/CustomersPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { KnowledgePage } from './pages/KnowledgePage';
 import { AiSuggestionsPage } from './pages/AiSuggestionsPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { AiSettingsPage } from './pages/AiSettingsPage';
+import { LogsPage } from './pages/LogsPage';
 import { authService } from './services/auth.service';
 import type { AuthUser } from './types';
 import './App.css';
@@ -152,6 +155,9 @@ function App() {
                   <Route path="/agents" element={<AgentsPage />} />
                   <Route path="/knowledge" element={<KnowledgePage />} />
                   <Route path="/ai-suggestions" element={<AiSuggestionsPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/ai-settings" element={<AiSettingsPage />} />
+                  <Route path="/logs" element={<LogsPage />} />
                   <Route path="/customer-invite" element={<CustomerInvitePage />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
