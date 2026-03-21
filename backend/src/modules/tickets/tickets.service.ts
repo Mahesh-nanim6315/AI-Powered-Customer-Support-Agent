@@ -2,7 +2,9 @@ import { TicketRepository } from "./tickets.repository";
 import prisma from "../../config/database";
 import { AgentService } from "../agents/agents.service";
 import { io } from "../../server";
-import { addAIJob } from "../../queues/bullmq";
+import { addAIJob, queuesEnabled } from "../../queues/bullmq";
+import { runAgentDetailed, type AgentRunResult } from "../../services/agent.service";
+import { NotificationService } from "../../services/notification.service";
 import {
   canTransitionStatus,
   normalizeApiStatus,
@@ -15,9 +17,6 @@ import {
 export class TicketService {
 
   static async createTicket(orgId: string, data: any) {
-
-    const assignedAgent = await AgentService.assignAgent(orgId);
-
     const ticket = await TicketRepository.create({
       orgId,
       customerId: data.customerId,
@@ -25,7 +24,7 @@ export class TicketService {
       subject: data.subject,
       description: data.description,
       priority: data.priority,
-      assignedAgentId: assignedAgent?.id,
+      status: toDbStatus("AI_IN_PROGRESS"),
       messages: {
         create: {
           role: "CUSTOMER",
@@ -34,34 +33,44 @@ export class TicketService {
       }
     });
 
-    io.to(`org-${orgId}`).emit("ticket-created", ticket);
-    io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status: "OPEN" });
-
-    // Immediately move to AI handling and queue the first AI response.
-    const aiHandlingTicket = await TicketRepository.updateStatus(
-      ticket.id,
-      orgId,
-      toDbStatus("AI_IN_PROGRESS")
-    );
-    if (aiHandlingTicket) {
-      const apiTicket = normalizeTicketForApi(aiHandlingTicket);
-      io.to(`org-${orgId}`).emit("ticket-updated", apiTicket);
-      io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status: "AI_IN_PROGRESS" });
-    }
+    const apiTicket = normalizeTicketForApi(ticket);
+    io.to(`org-${orgId}`).emit("ticket-created", apiTicket);
+    io.to(`org-${orgId}`).emit("ticket-updated", apiTicket);
+    io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status: "AI_IN_PROGRESS" });
 
     try {
-      await addAIJob({
-        ticketId: ticket.id,
-        orgId,
-        message: data.description || data.subject || "New ticket received",
-        isInitialProcessing: true,
-        delayMs: 12000,
-      });
+      const initialMessage = data.description || data.subject || "New ticket received";
+      if (queuesEnabled) {
+        await addAIJob({
+          ticketId: ticket.id,
+          orgId,
+          message: initialMessage,
+          isInitialProcessing: true,
+          delayMs: 12000,
+        });
+      } else {
+        const aiRun = await runAgentDetailed(initialMessage, orgId, ticket.id, io);
+        const aiMessage = await prisma.ticketMessage.create({
+          data: {
+            ticketId: ticket.id,
+            role: "AI",
+            content: aiRun.reply,
+          },
+        });
+
+        const { status } = await this.applyAiOutcome(ticket.id, orgId, aiRun);
+        io.to(`ticket-${ticket.id}`).emit("newMessage", aiMessage);
+        io.to(`ticket-${ticket.id}`).emit("message-added", aiMessage);
+        io.to(`ticket-${ticket.id}`).emit("ai_reply", aiMessage);
+        io.to(`ticket-${ticket.id}`).emit("ai_mode", { ticketId: ticket.id, mode: aiRun.mode });
+        io.to(`org-${orgId}`).emit("ticket-updated", { id: ticket.id, status });
+        io.to(`org-${orgId}`).emit("ticket_update", { ticketId: ticket.id, status });
+      }
     } catch (queueError) {
       console.error("Failed to enqueue AI job:", queueError);
     }
 
-    return aiHandlingTicket || ticket;
+    return ticket;
   }
 
 
@@ -91,14 +100,48 @@ export class TicketService {
       throw new Error(`Invalid status transition: ${currentStatus} -> ${nextStatus}`);
     }
 
-    const ticket = await TicketRepository.updateStatus(id, orgId, toDbStatus(nextStatus));
+    const updateData: {
+      status: ReturnType<typeof toDbStatus>;
+      assignedAgentId?: string | null;
+    } = {
+      status: toDbStatus(nextStatus),
+    };
+
+    if (
+      ["ESCALATED", "IN_PROGRESS"].includes(nextStatus) &&
+      !currentTicket.assignedAgentId
+    ) {
+      const assignedAgent = await AgentService.assignAgent(orgId);
+      if (assignedAgent) {
+        updateData.assignedAgentId = assignedAgent.id;
+      }
+    }
+
+    const ticket = await TicketRepository.updateStatus(id, orgId, updateData);
     if (!ticket) {
       throw new Error("Ticket not found");
+    }
+
+    if (
+      currentTicket.assignedAgentId &&
+      !["RESOLVED", "CLOSED"].includes(currentStatus) &&
+      ["RESOLVED", "CLOSED"].includes(nextStatus)
+    ) {
+      await AgentService.releaseAgentLoad(currentTicket.assignedAgentId);
     }
 
     const apiTicket = normalizeTicketForApi(ticket);
     io.to(`org-${orgId}`).emit("ticket-updated", apiTicket);
     io.to(`org-${orgId}`).emit("ticket_update", { ticketId: id, status: nextStatus });
+
+    if (currentStatus !== nextStatus) {
+      await NotificationService.sendTicketStatusNotification(id, currentStatus, nextStatus, orgId);
+    }
+
+    if (updateData.assignedAgentId && updateData.assignedAgentId !== currentTicket.assignedAgentId) {
+      await NotificationService.sendAssignmentNotification(id, updateData.assignedAgentId, orgId);
+    }
+
     return apiTicket;
   }
 
@@ -137,6 +180,11 @@ export class TicketService {
   }
 
   static async deleteTicket(id: string, orgId: string) {
+    const ticket = await TicketRepository.findById(id, orgId);
+    if (ticket?.assignedAgentId) {
+      await AgentService.releaseAgentLoad(ticket.assignedAgentId);
+    }
+
     const deleted = await TicketRepository.deleteById(id, orgId);
     if (!deleted) {
       throw new Error("Ticket not found");
@@ -144,6 +192,63 @@ export class TicketService {
 
     io.to(`org-${orgId}`).emit("ticket-deleted", { ticketId: id });
     return deleted;
+  }
+
+  static async applyAiOutcome(ticketId: string, orgId: string, aiRun: AgentRunResult) {
+    const existingTicket = await prisma.ticket.findFirst({
+      where: {
+        id: ticketId,
+        orgId,
+      },
+      select: {
+        id: true,
+        assignedAgentId: true,
+      },
+    });
+
+    if (!existingTicket) {
+      throw new Error("Ticket not found");
+    }
+
+    const nextStatus = aiRun.shouldEscalate ? "ESCALATED" : "RESOLVED";
+    const updateData: {
+      status: ReturnType<typeof toDbStatus>;
+      assignedAgentId?: string;
+    } = {
+      status: toDbStatus(nextStatus),
+    };
+
+    if (aiRun.shouldEscalate && !existingTicket.assignedAgentId) {
+      const assignedAgent = await AgentService.assignAgent(orgId);
+      if (assignedAgent) {
+        updateData.assignedAgentId = assignedAgent.id;
+      }
+    }
+
+    const updatedTicket = await prisma.ticket.update({
+      where: { id: ticketId },
+      data: updateData,
+      include: {
+        customer: true,
+        assignedAgent: {
+          include: {
+            user: true,
+          },
+        },
+        messages: true,
+      },
+    });
+
+    const previousStatus = existingTicket.assignedAgentId ? "IN_PROGRESS" : "AI_IN_PROGRESS";
+    await NotificationService.sendTicketStatusNotification(ticketId, previousStatus, nextStatus, orgId);
+    if (updateData.assignedAgentId) {
+      await NotificationService.sendAssignmentNotification(ticketId, updateData.assignedAgentId, orgId);
+    }
+
+    return {
+      status: nextStatus,
+      ticket: normalizeTicketForApi(updatedTicket),
+    };
   }
 
 }   

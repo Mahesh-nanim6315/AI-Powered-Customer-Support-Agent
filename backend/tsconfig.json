@@ -9,6 +9,42 @@
   },
   "include": [
     "src/**/*",
-    "prisma.config.ts"
+    "prisma/prisma.config.ts"
+  ],
+  "exclude": [
+    "src/controllers/adminDashboard.controller.ts",
+    "src/controllers/agentCollaboration.controller.ts",
+    "src/controllers/agentDashboard.controller.ts",
+    "src/controllers/agentPerformance.controller.ts",
+    "src/controllers/automation.controller.ts",
+    "src/controllers/customerHistory.controller.ts",
+    "src/controllers/customerKnowledge.controller.ts",
+    "src/controllers/customerPortal.controller.ts",
+    "src/controllers/fileAttachment.controller.ts",
+    "src/controllers/messageRead.controller.ts",
+    "src/controllers/messageSearch.controller.ts",
+    "src/controllers/notification.controller.ts",
+    "src/controllers/systemAnalytics.controller.ts",
+    "src/controllers/ticketAssignment.controller.ts",
+    "src/routes/adminDashboard.routes.ts",
+    "src/routes/agentCollaboration.routes.ts",
+    "src/routes/agentDashboard.routes.ts",
+    "src/routes/agentPerformance.routes.ts",
+    "src/routes/automation.routes.ts",
+    "src/routes/customerHistory.routes.ts",
+    "src/routes/customerKnowledge.routes.ts",
+    "src/routes/customerPortal.routes.ts",
+    "src/routes/fileAttachment.routes.ts",
+    "src/routes/messageRead.routes.ts",
+    "src/routes/messageSearch.routes.ts",
+    "src/routes/systemAnalytics.routes.ts",
+    "src/routes/ticketAssignment.routes.ts",
+    "src/services/audit.service.ts",
+    "src/services/fileAttachment.service.ts",
+    "src/services/messageRead.service.ts",
+    "src/services/messageSearch.service.ts",
+    "src/services/notification.service.ts",
+    "src/config/database-performance.ts",
+    "prisma/prisma.config.ts"
   ]
 }

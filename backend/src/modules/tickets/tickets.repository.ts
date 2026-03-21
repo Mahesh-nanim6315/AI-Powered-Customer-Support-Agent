@@ -29,10 +29,17 @@ export class TicketRepository {
     });
   }
 
-  static async updateStatus(id: string, orgId: string, status: any) {
+  static async updateStatus(
+    id: string,
+    orgId: string,
+    data: {
+      status: any;
+      assignedAgentId?: string | null;
+    }
+  ) {
     const updated = await prisma.ticket.updateMany({
       where: { id, orgId },
-      data: { status },
+      data,
     });
 
     if (updated.count === 0) return null;

@@ -1,6 +1,29 @@
-import { Card } from '../components';
-import { Settings, Zap, Brain, MessageSquare, Shield } from 'lucide-react';
-import '../page.css';
+import { Alert, Card } from "../components";
+import { Brain, MessageSquare, Settings, Shield, Zap } from "lucide-react";
+import "../page.css";
+
+const aiSettingsSections = [
+  {
+    icon: Brain,
+    title: "AI Model Configuration",
+    description: "Model selection, temperature, and confidence thresholds are not wired to a live backend endpoint yet.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Response Templates",
+    description: "Template and canned-reply management still needs a persisted API contract before this page can be interactive.",
+  },
+  {
+    icon: Zap,
+    title: "Automation Rules",
+    description: "Routing, prioritization, and escalation rules are still controlled in backend code, not from an admin settings API.",
+  },
+  {
+    icon: Shield,
+    title: "Safety and Moderation",
+    description: "Safety policies and moderation thresholds are not exposed through mounted admin routes in the current backend.",
+  },
+];
 
 export function AiSettingsPage() {
   return (
@@ -8,80 +31,28 @@ export function AiSettingsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">AI Settings</h1>
-          <p className="page-subtitle">
-            Configure your AI-powered support features
-          </p>
+          <p className="page-subtitle">Configuration surface for AI controls that still needs real backend support</p>
         </div>
       </div>
 
+      <Alert type="warning" title="Settings API Not Live">
+        This page is intentionally read-only for now. The current backend does not mount admin endpoints for saving AI settings.
+      </Alert>
+
       <div className="settings-grid">
-        <Card className="setting-card">
-          <div className="setting-header">
-            <div className="setting-icon">
-              <Brain size={24} />
+        {aiSettingsSections.map(({ icon: Icon, title, description }) => (
+          <Card key={title} className="setting-card">
+            <div className="setting-header">
+              <div className="setting-icon">
+                <Icon size={24} />
+              </div>
+              <h2 className="setting-title">{title}</h2>
             </div>
-            <h2 className="setting-title">AI Model Configuration</h2>
-          </div>
-          <div className="setting-content">
-            <p className="setting-description">
-              Configure the AI model settings, temperature, and response parameters.
-            </p>
-            <div className="setting-actions">
-              <button className="btn btn--primary">Configure</button>
+            <div className="setting-content">
+              <p className="setting-description">{description}</p>
             </div>
-          </div>
-        </Card>
-
-        <Card className="setting-card">
-          <div className="setting-header">
-            <div className="setting-icon">
-              <MessageSquare size={24} />
-            </div>
-            <h2 className="setting-title">Response Templates</h2>
-          </div>
-          <div className="setting-content">
-            <p className="setting-description">
-              Manage AI response templates and canned responses for common queries.
-            </p>
-            <div className="setting-actions">
-              <button className="btn btn--primary">Manage Templates</button>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="setting-card">
-          <div className="setting-header">
-            <div className="setting-icon">
-              <Zap size={24} />
-            </div>
-            <h2 className="setting-title">Automation Rules</h2>
-          </div>
-          <div className="setting-content">
-            <p className="setting-description">
-              Set up automation rules for ticket routing, prioritization, and escalation.
-            </p>
-            <div className="setting-actions">
-              <button className="btn btn--primary">Configure Rules</button>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="setting-card">
-          <div className="setting-header">
-            <div className="setting-icon">
-              <Shield size={24} />
-            </div>
-            <h2 className="setting-title">Safety & Moderation</h2>
-          </div>
-          <div className="setting-content">
-            <p className="setting-description">
-              Configure content filters, safety measures, and moderation policies.
-            </p>
-            <div className="setting-actions">
-              <button className="btn btn--primary">Manage Safety</button>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        ))}
       </div>
 
       <Card className="setting-card setting-card--full">
@@ -89,42 +60,21 @@ export function AiSettingsPage() {
           <div className="setting-icon">
             <Settings size={24} />
           </div>
-          <h2 className="setting-title">General Settings</h2>
+          <h2 className="setting-title">What Needs To Exist First</h2>
         </div>
         <div className="setting-content">
           <div className="setting-form">
             <div className="form-group">
-              <label className="form-label">AI Assistant Name</label>
-              <input
-                type="text"
-                className="form-input"
-                defaultValue="Chitti"
-                placeholder="Enter AI assistant name"
-              />
+              <label className="form-label">Required backend work</label>
+              <div className="form-input" style={{ minHeight: "auto" }}>
+                Persisted org-level AI configuration, validation rules, and authenticated admin endpoints.
+              </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Response Language</label>
-              <select className="form-select">
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">AI Confidence Threshold</label>
-              <input
-                type="range"
-                className="form-range"
-                min="0"
-                max="100"
-                defaultValue="75"
-              />
-              <span className="form-range-value">75%</span>
-            </div>
-            <div className="form-actions">
-              <button className="btn btn--primary">Save Settings</button>
-              <button className="btn btn--secondary">Cancel</button>
+              <label className="form-label">Recommended next API contract</label>
+              <div className="form-input" style={{ minHeight: "auto" }}>
+                <code>GET /admin/ai-settings</code> and <code>PATCH /admin/ai-settings</code> with org-scoped settings and audit logging.
+              </div>
             </div>
           </div>
         </div>

@@ -11,7 +11,6 @@ export function AgentsPage() {
   const agentsQuery = useAgentsHooks.useAgents();
   const realtime = useRealtime();
   const [showLiveNotification, setShowLiveNotification] = useState(false);
-  const userRole = JSON.parse(localStorage.getItem('chitti_auth_user') || '{}')?.role;
 
   const createAgentMutation = useAgentsHooks.useCreateAgent();
   const updateAgentMutation = useAgentsHooks.useUpdateAgent();
@@ -60,31 +59,29 @@ export function AgentsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Support Agents</h1>
-          <p className="page-subtitle">Manage your support team</p>
+          <p className="page-subtitle">Manage agent accounts, workload visibility, and support-team availability</p>
         </div>
-        {userRole === 'ADMIN' && (
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setInviteEmail('');
-                setInviteRole('AGENT');
-                setInviteError(null);
-                setInviteSuccess(null);
-                setIsInviteModalOpen(true);
-              }}
-            >
-              Invite Agent
-            </Button>
-            <Button onClick={() => {
-              setFormData({ email: '', password: '', specialization: '' });
-              setIsCreateModalOpen(true);
-            }}>
-              <Plus size={18} />
-              New Agent
-            </Button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setInviteEmail('');
+              setInviteRole('AGENT');
+              setInviteError(null);
+              setInviteSuccess(null);
+              setIsInviteModalOpen(true);
+            }}
+          >
+            Invite Agent
+          </Button>
+          <Button onClick={() => {
+            setFormData({ email: '', password: '', specialization: '' });
+            setIsCreateModalOpen(true);
+          }}>
+            <Plus size={18} />
+            New Agent
+          </Button>
+        </div>
       </div>
 
       {showLiveNotification && (
@@ -113,30 +110,28 @@ export function AgentsPage() {
                 >
                   {agent.busyStatus ? 'Busy' : 'Available'}
                 </Badge>
-                {userRole === 'ADMIN' && (
-                  <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
-                    <button 
-                      onClick={() => {
-                        setSelectedAgent(agent);
-                        setFormData({ email: agent.user?.email || '', password: '', specialization: agent.specialization || '' });
-                        setIsEditModalOpen(true);
-                      }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        if (window.confirm("Are you sure you want to delete this agent? This cannot be undone.")) {
-                            await deleteAgentMutation.mutateAsync(agent.id);
-                        }
-                      }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                )}
+                <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
+                  <button 
+                    onClick={() => {
+                      setSelectedAgent(agent);
+                      setFormData({ email: agent.user?.email || '', password: '', specialization: agent.specialization || '' });
+                      setIsEditModalOpen(true);
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (window.confirm("Are you sure you want to delete this agent? This cannot be undone.")) {
+                          await deleteAgentMutation.mutateAsync(agent.id);
+                      }
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
               <div className="agent-details">
                 <div className="agent-detail-row">
@@ -198,7 +193,7 @@ export function AgentsPage() {
       <Modal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
-        title="Invite Team Member"
+        title="Invite Support Agent"
         actions={
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setIsInviteModalOpen(false)}>Cancel</Button>
@@ -245,8 +240,6 @@ export function AgentsPage() {
             label="Role"
             options={[
               { value: 'AGENT', label: 'Agent' },
-              { value: 'ADMIN', label: 'Admin' },
-              { value: 'CUSTOMER', label: 'Customer' },
             ]}
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value)}
@@ -294,4 +287,3 @@ export function AgentsPage() {
     </div>
   );
 }
-

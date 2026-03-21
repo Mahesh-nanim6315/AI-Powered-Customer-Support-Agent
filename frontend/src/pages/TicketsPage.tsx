@@ -121,7 +121,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
   });
 
   const canUpdateStatus = user?.role === 'ADMIN' || user?.role === 'AGENT';
-  const canManageTicket = user?.role === 'ADMIN' || user?.role === 'AGENT' || user?.role === 'CUSTOMER';
+  const canEditOrDeleteTicket = user?.role === 'ADMIN' || user?.role === 'AGENT';
   const statusOptions: TicketStatus[] = ['OPEN', 'AI_IN_PROGRESS', 'ESCALATED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
   const handleCreateTicket = async () => {
@@ -417,7 +417,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  {canManageTicket && selectedTicket && (
+                  {canEditOrDeleteTicket && selectedTicket && (
                     <>
                       <Button variant="secondary" onClick={handleOpenEditModal}>
                         Edit

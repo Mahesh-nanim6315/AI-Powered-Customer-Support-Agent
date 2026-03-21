@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // connection URL moved to prisma.config.ts per Prisma 7 requirements
 }
 
 model Organization {
@@ -21,6 +20,7 @@ model Organization {
   knowledgeBase    KnowledgeBase[]
   createdAt        DateTime        @default(now())
   aiSuggestions    AiSuggestion[]
+  notifications    CustomerNotification[]
 }
 
 model User {
@@ -50,6 +50,7 @@ model Customer {
   org       Organization @relation(fields: [orgId], references: [id])
   user      User?        @relation(fields: [userId], references: [id])
   tickets   Ticket[]
+  notifications CustomerNotification[]
   inviteTokens CustomerInviteToken[]
   createdAt DateTime     @default(now())
 
@@ -74,6 +75,7 @@ model Ticket {
   customer        Customer         @relation(fields: [customerId], references: [id])
   createdByUser   User?            @relation(fields: [createdByUserId], references: [id])
   analytics       TicketAnalytics?
+  notifications   CustomerNotification[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   aiSuggestions   AiSuggestion[]
@@ -249,4 +251,35 @@ enum SuggestionStatus {
   APPROVED
   REJECTED
   EXECUTED
+}
+
+model CustomerNotification {
+  id         String           @id @default(uuid())
+  customerId String
+  orgId      String
+  ticketId   String?
+  type       NotificationType
+  title      String
+  message    String
+  data       String?
+  read       Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  customer Customer     @relation(fields: [customerId], references: [id])
+  org      Organization @relation(fields: [orgId], references: [id])
+  ticket    Ticket?      @relation(fields: [ticketId], references: [id])
+
+  @@index([customerId, orgId, read])
+  @@index([orgId, createdAt])
+  @@index([ticketId])
+}
+
+enum NotificationType {
+  TICKET_CREATED
+  TICKET_UPDATED
+  TICKET_ASSIGNED
+  TICKET_RESOLVED
+  TICKET_ESCALATED
+  MESSAGE_RECEIVED
 }

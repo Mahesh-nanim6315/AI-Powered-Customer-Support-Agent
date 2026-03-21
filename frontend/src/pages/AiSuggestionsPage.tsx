@@ -75,10 +75,14 @@ export function AiSuggestionsPage() {
         <div>
           <h1 className="page-title">AI Suggestions</h1>
           <p className="page-subtitle">
-            Review and approve AI-generated suggestions for your support team
+            Review the live approve-or-reject queue for AI-generated support suggestions
           </p>
         </div>
       </div>
+
+      <Alert type="info" title="Current Scope">
+        This screen currently supports basic approve and reject actions only. Confidence scoring, execution audit, and richer suggestion context are not exposed here yet.
+      </Alert>
 
       {error && (
         <Alert type="error" title="Error" onClose={() => setError(null)}>

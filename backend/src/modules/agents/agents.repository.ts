@@ -35,4 +35,18 @@ export class AgentRepository {
       }
     });
   }
+
+  static async decrementLoad(agentId: string) {
+    return prisma.agent.updateMany({
+      where: {
+        id: agentId,
+        activeTickets: {
+          gt: 0,
+        },
+      },
+      data: {
+        activeTickets: { decrement: 1 },
+      },
+    });
+  }
 }

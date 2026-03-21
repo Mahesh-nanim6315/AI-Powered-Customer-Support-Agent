@@ -19,4 +19,8 @@ export class AgentService {
 
     return selectedAgent;
   }
+
+  static async releaseAgentLoad(agentId: string) {
+    return AgentRepository.decrementLoad(agentId);
+  }
 }

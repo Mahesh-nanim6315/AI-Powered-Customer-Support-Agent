@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Button, Input, TextArea, Spinner, Badge } from '../components';
+import { Card, Button, Input, TextArea, Spinner, Badge, Alert } from '../components';
 import { Plus } from 'lucide-react';
 import { knowledgeService } from '../services/knowledge.service';
 import type { KnowledgeBase } from '../types';
@@ -106,7 +106,7 @@ export function KnowledgePage() {
         <div>
           <h1 className="page-title">Knowledge Base</h1>
           <p className="page-subtitle">
-            Upload articles and documents to power AI responses
+            Manage text knowledge articles that feed AI and agent responses
           </p>
         </div>
         <Button onClick={() => setIsAddingArticle(true)}>
@@ -114,6 +114,10 @@ export function KnowledgePage() {
           Add Article
         </Button>
       </div>
+
+      <Alert type="info" title="Current Scope">
+        This UI supports listing and creating text articles only. File upload exists on the backend, but no document-upload workflow is wired into the frontend yet.
+      </Alert>
 
       {isAddingArticle && (
         <Card className="form-card">
@@ -160,9 +164,9 @@ export function KnowledgePage() {
         <Card className="empty-card">
           <div className="empty-state">
             <p>No articles yet</p>
-            <p className="text-muted">Add articles to train your AI agent</p>
+            <p className="text-muted">Add articles to seed the current knowledge base</p>
             <Button onClick={handleAddSamples} disabled={isSeeding}>
-              {isSeeding ? 'Adding Samples...' : 'Add Sample Articles'}
+              {isSeeding ? 'Seeding Demo Articles...' : 'Seed Demo Articles'}
             </Button>
           </div>
         </Card>

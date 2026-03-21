@@ -136,6 +136,9 @@ export class TicketController {
         where: {
           orgId: req.user.orgId,
           assignedAgentId: null,
+          status: {
+            in: ["OPEN", "ESCALATED", "IN_PROGRESS"]
+          }
         },
         include: {
           customer: true,
@@ -175,18 +178,29 @@ export class TicketController {
         }
       }
 
+      // Enhanced customer permission validation for getById
       if (req.user.role === "CUSTOMER") {
-        const allowedTicket = await prisma.ticket.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: {
-            id: req.params.id,
             orgId: req.user.orgId,
-            createdByUserId: userId,
+            userId
           },
           select: { id: true }
         });
 
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            OR: [
+              { createdByUserId: userId },
+              ...(customer ? [{ customerId: customer.id }] : [])
+            ]
+          }
+        });
+
         if (!allowedTicket) {
-          return res.status(403).json({ message: "Forbidden" });
+          return res.status(403).json({ message: "Forbidden: You can only access your own tickets" });
         }
       }
 

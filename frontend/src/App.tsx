@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RealtimeProvider } from './context/RealtimeContext';
@@ -50,6 +51,20 @@ function loadStoredUser(): AuthUser | null {
     console.error('❌ Error loading stored user:', error);
     return null;
   }
+}
+
+interface RoleRouteProps {
+  user: AuthUser;
+  allowedRoles: AuthUser['role'][];
+  children: ReactNode;
+}
+
+function RoleRoute({ user, allowedRoles, children }: RoleRouteProps) {
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 function App() {
@@ -151,14 +166,70 @@ function App() {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage user={user} />} />
                   <Route path="/tickets" element={<TicketsPage user={user} />} />
-                  <Route path="/customers" element={<CustomersPage />} />
-                  <Route path="/agents" element={<AgentsPage />} />
-                  <Route path="/knowledge" element={<KnowledgePage />} />
-                  <Route path="/ai-suggestions" element={<AiSuggestionsPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
-                  <Route path="/ai-settings" element={<AiSettingsPage />} />
-                  <Route path="/logs" element={<LogsPage />} />
-                  <Route path="/customer-invite" element={<CustomerInvitePage />} />
+                  <Route
+                    path="/customers"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['ADMIN']}>
+                        <CustomersPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/agents"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['ADMIN']}>
+                        <AgentsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/knowledge"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['ADMIN', 'AGENT']}>
+                        <KnowledgePage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/ai-suggestions"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['ADMIN', 'AGENT']}>
+                        <AiSuggestionsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/analytics"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['ADMIN']}>
+                        <AnalyticsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/ai-settings"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['ADMIN']}>
+                        <AiSettingsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/logs"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['ADMIN']}>
+                        <LogsPage />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/customer-invite"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['ADMIN']}>
+                        <CustomerInvitePage />
+                      </RoleRoute>
+                    }
+                  />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </AppLayout>

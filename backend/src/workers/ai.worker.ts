@@ -4,7 +4,7 @@ import { runAgentDetailed } from "../services/agent.service";
 import { logger } from "../utils/logger";
 import prisma from "../config/database";
 import { getIO } from "../config/socket";
-import { toApiStatus, toDbStatus } from "../modules/tickets/ticketStatus.lifecycle";
+import { TicketService } from "../modules/tickets/tickets.service";
 
 const workersEnabled =
   String(process.env.ENABLE_BULLMQ_WORKERS).toLowerCase() === "true";
@@ -36,13 +36,7 @@ if (workersEnabled && isRedisEnabled && redisConnectionOptions) {
       });
 
       // Update ticket status based on processing type
-      const newStatus = aiRun.shouldEscalate ? "ESCALATED" : "RESOLVED";
-      const apiStatus = toApiStatus(newStatus);
-
-      await prisma.ticket.update({
-        where: { id: ticketId },
-        data: { status: toDbStatus(newStatus) },
-      });
+      const { status: newStatus } = await TicketService.applyAiOutcome(ticketId, orgId, aiRun);
 
       // Emit real-time update
       try {
@@ -50,9 +44,9 @@ if (workersEnabled && isRedisEnabled && redisConnectionOptions) {
         io.to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
         io.to(`ticket-${ticketId}`).emit("message-added", aiMessage);
         io.to(`ticket-${ticketId}`).emit("ai_reply", aiMessage);
-        io.to(`org-${orgId}`).emit("ticketUpdated", { ticketId, status: apiStatus });
-        io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: apiStatus });
-        io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: apiStatus });
+        io.to(`org-${orgId}`).emit("ticketUpdated", { ticketId, status: newStatus });
+        io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: newStatus });
+        io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: newStatus });
       } catch (error) {
         logger.warn("Failed to emit Socket.io event", {
           error: error instanceof Error ? error.message : String(error),

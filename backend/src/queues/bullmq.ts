@@ -7,7 +7,7 @@ import { logger } from "../utils/logger";
  * Used by controllers/services to add jobs
  */
 
-const queuesEnabled = Boolean(redisConnectionOptions);
+export const queuesEnabled = Boolean(redisConnectionOptions);
 
 const createNoopQueue = (name: string) => ({
   name,

@@ -7,7 +7,8 @@
     "test": "tsx --test src/**/*.test.ts",
     "dev": "tsx watch src/server.ts",
     "seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate reset --force && npm run seed"
+    "db:reset": "prisma migrate reset --force && npm run seed",
+    "reset-password": "tsx src/scripts/resetPassword.ts"
   },
   "keywords": [],
   "author": "",

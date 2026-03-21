@@ -3,8 +3,7 @@ import { useAdminAnalytics, useTicketTrends, useAgentPerformance } from '../hook
 import { Card, Spinner, Alert } from '../components';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, Users, Zap, MessageSquare } from 'lucide-react';
-import type { TicketTrends, AgentPerformance } from '../types';
+import { TrendingUp, Users, Zap, MessageSquare } from 'lucide-react';
 import '../page.css';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
@@ -55,28 +54,24 @@ export function AnalyticsPage() {
       label: 'Total Tickets',
       value: analytics?.totalTickets || 0,
       color: 'blue',
-      trend: null,
     },
     {
       icon: TrendingUp,
       label: 'Active Tickets',
       value: analytics?.activeTickets || 0,
       color: 'orange',
-      trend: null,
     },
     {
       icon: Zap,
       label: 'AI Resolution Rate',
       value: `${Math.round((analytics?.aiResolutionRate || 0) * 100)}%`,
       color: 'green',
-      trend: analytics?.aiResolutionRate ? 'up' : 'down',
     },
     {
       icon: Users,
       label: 'Agent Resolution Rate',
       value: `${Math.round((analytics?.agentResolutionRate || 0) * 100)}%`,
       color: 'purple',
-      trend: analytics?.agentResolutionRate ? 'up' : 'down',
     },
   ];
 
@@ -86,7 +81,7 @@ export function AnalyticsPage() {
         <div>
           <h1 className="page-title">Analytics</h1>
           <p className="page-subtitle">
-            Detailed insights into your support operations
+            Summary analytics from the currently mounted admin endpoints
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -108,11 +103,14 @@ export function AnalyticsPage() {
         </Alert>
       )}
 
+      <Alert type="info" title="Current Scope">
+        This page shows the live overview, ticket trend, and agent performance endpoints. SLA, workload balancing, and AI quality analytics are still missing.
+      </Alert>
+
       {/* Metrics Cards */}
       <div className="metrics-grid">
         {metrics.map((metric) => {
           const Icon = metric.icon;
-          const TrendIcon = metric.trend === 'up' ? TrendingUp : TrendingDown;
           return (
             <Card key={metric.label} className="metric-card">
               <div className="metric-header">
@@ -123,12 +121,6 @@ export function AnalyticsPage() {
               </div>
               <div className="metric-body">
                 <div className="metric-value">{metric.value}</div>
-                {metric.trend && (
-                  <div className={`metric-trend ${metric.trend === 'up' ? 'positive' : 'negative'}`}>
-                    <TrendIcon size={16} />
-                    {metric.trend === 'up' ? 'Improving' : 'Declining'}
-                  </div>
-                )}
               </div>
             </Card>
           );

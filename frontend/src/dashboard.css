@@ -168,9 +168,24 @@
   color: #92400e;
 }
 
+.status--ai_in_progress {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
 .status--ai_handling {
   background-color: #dbeafe;
   color: #1e40af;
+}
+
+.status--escalated {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status--in_progress {
+  background-color: #ede9fe;
+  color: #6d28d9;
 }
 
 .status--waiting_for_human {
