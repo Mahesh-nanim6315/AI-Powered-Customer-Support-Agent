@@ -29,7 +29,7 @@ class ApiClient {
                 console.log(`✅ API Response ${response.status}: ${response.config.url}`);
                 return response;
             },
-            (error: AxiosError) => {
+            (error: AxiosError<{ message?: string }>) => {
                 console.error(`❌ API Error ${error.response?.status}: ${error.config?.url} - ${error.message}`);
                 if (error.response?.status === 401) {
                     console.error('🔴 401 Unauthorized error, clearing auth');
@@ -40,7 +40,8 @@ class ApiClient {
                         window.location.href = '/login';
                     }
                 }
-                return Promise.reject(error);
+                const apiMessage = error.response?.data?.message;
+                return Promise.reject(apiMessage ? new Error(apiMessage) : error);
             }
         );
     }

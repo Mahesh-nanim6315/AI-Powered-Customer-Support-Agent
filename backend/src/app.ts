@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import authRoutes from "./modules/auth/auth.routes";
+import { CustomersController } from "./modules/customers/customers.controller";
 import ticketRoutes from "./modules/tickets/tickets.routes";
 import agentRoutes from "./modules/agents/agents.routes";
 import knowledgeRoutes from "./routes/knowledge.routes";
@@ -22,7 +23,7 @@ app.use(cors());
 app.use(express.json());
 
 // Apply rate limiting
-app.use("/auth", rateLimitAuth);
+// app.use("/auth", rateLimitAuth);
 app.use("/tickets", rateLimitMessages);
 app.use(rateLimitDefault);
 
@@ -31,6 +32,7 @@ app.use(securityValidation);
 app.use(sanitizeInputs);
 
 app.use("/auth", authRoutes);
+app.post("/customers/accept-invite", CustomersController.acceptInvite);
 app.use(authMiddleware, orgMiddleware);
 app.use("/tickets", ticketRoutes);
 app.use("/agents", agentRoutes);
