@@ -9,6 +9,8 @@ import customersRoutes from "./modules/customers/customers.routes";
 import aiSuggestionsRoutes from "./modules/ai-suggestions/aiSuggestions.routes";
 import analyticsRoutes from "./modules/analytics/analytics.routes";
 import notificationRoutes from "./routes/notification.routes";
+import messageReadRoutes from "./routes/messageRead.routes";
+import fileAttachmentRoutes from "./routes/fileAttachment.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { orgMiddleware } from "./middlewares/org.middleware";
 import { rateLimitDefault, rateLimitAuth, rateLimitMessages } from "./middlewares/rateLimit.middleware";
@@ -41,5 +43,7 @@ app.use("/knowledge", knowledgeRoutes);
 app.use("/ai/suggestions", aiSuggestionsRoutes);
 app.use("/analytics", analyticsRoutes);
 app.use("/notifications", notificationRoutes);
+app.use("/read-receipts", messageReadRoutes);
+app.use("/attachments", fileAttachmentRoutes);
 
 export default app;

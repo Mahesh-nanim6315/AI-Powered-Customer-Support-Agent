@@ -5,6 +5,7 @@ import { io } from "../../server";
 import { addAIJob, queuesEnabled } from "../../queues/bullmq";
 import { runAgentDetailed, type AgentRunResult } from "../../services/agent.service";
 import { NotificationService } from "../../services/notification.service";
+import { TicketAssignmentHistoryService } from "../../services/ticketAssignmentHistory.service";
 import {
   canTransitionStatus,
   normalizeApiStatus,
@@ -140,6 +141,11 @@ export class TicketService {
 
     if (updateData.assignedAgentId && updateData.assignedAgentId !== currentTicket.assignedAgentId) {
       await NotificationService.sendAssignmentNotification(id, updateData.assignedAgentId, orgId);
+      await TicketAssignmentHistoryService.record({
+        ticketId: id,
+        agentId: updateData.assignedAgentId,
+        action: currentTicket.assignedAgentId ? "REASSIGNED" : "AUTO_ASSIGNED",
+      });
     }
 
     return apiTicket;
@@ -243,6 +249,11 @@ export class TicketService {
     await NotificationService.sendTicketStatusNotification(ticketId, previousStatus, nextStatus, orgId);
     if (updateData.assignedAgentId) {
       await NotificationService.sendAssignmentNotification(ticketId, updateData.assignedAgentId, orgId);
+      await TicketAssignmentHistoryService.record({
+        ticketId,
+        agentId: updateData.assignedAgentId,
+        action: existingTicket.assignedAgentId ? "REASSIGNED" : "AUTO_ASSIGNED",
+      });
     }
 
     return {

@@ -1,8 +1,30 @@
 import { Request, Response } from 'express';
-import multer from 'multer';
+import { z } from 'zod';
 import { FileAttachmentService } from '../services/fileAttachment.service';
-import { validate } from '../middlewares/validation.middleware';
 import { uuidSchema } from '../validators/common.validators';
+
+const multer = require("multer") as {
+  (options?: Record<string, unknown>): {
+    single(fieldName: string): (req: Request, res: Response, next: (error?: unknown) => void) => void;
+    array(fieldName: string, maxCount?: number): (req: Request, res: Response, next: (error?: unknown) => void) => void;
+  };
+  memoryStorage(): unknown;
+};
+
+interface UploadedFile {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
+const messageIdParamsSchema = z.object({
+  messageId: uuidSchema,
+});
+
+const fileIdParamsSchema = z.object({
+  fileId: uuidSchema,
+});
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -11,7 +33,7 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req: Request, file: UploadedFile, cb: (error: Error | null, acceptFile?: boolean) => void) => {
     const allowedTypes = [
       'image/jpeg',
       'image/png',
@@ -46,11 +68,7 @@ export class FileAttachmentController {
    */
   static async uploadFile(req: Request, res: Response) {
     try {
-      const { messageId } = await validate({
-        params: {
-          messageId: uuidSchema
-        }
-      });
+      const { messageId } = messageIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
       const orgId = (req as any).user?.orgId;
@@ -59,7 +77,9 @@ export class FileAttachmentController {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      if (!req.file) {
+      const file = (req as Request & { file?: UploadedFile }).file;
+
+      if (!file) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
@@ -67,7 +87,7 @@ export class FileAttachmentController {
       await FileAttachmentService.initializeUploadDir();
 
       const result = await FileAttachmentService.uploadFile(
-        req.file,
+        file,
         messageId,
         userId,
         orgId
@@ -99,11 +119,7 @@ export class FileAttachmentController {
    */
   static async getMessageAttachments(req: Request, res: Response) {
     try {
-      const { messageId } = await validate({
-        params: {
-          messageId: uuidSchema
-        }
-      });
+      const { messageId } = messageIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
 
@@ -130,11 +146,7 @@ export class FileAttachmentController {
    */
   static async downloadFile(req: Request, res: Response) {
     try {
-      const { fileId } = await validate({
-        params: {
-          fileId: uuidSchema
-        }
-      });
+      const { fileId } = fileIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
 
@@ -160,11 +172,7 @@ export class FileAttachmentController {
    */
   static async deleteFile(req: Request, res: Response) {
     try {
-      const { fileId } = await validate({
-        params: {
-          fileId: uuidSchema
-        }
-      });
+      const { fileId } = fileIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
       const orgId = (req as any).user?.orgId;
@@ -222,11 +230,7 @@ export class FileAttachmentController {
    */
   static async getFileInfo(req: Request, res: Response) {
     try {
-      const { fileId } = await validate({
-        params: {
-          fileId: uuidSchema
-        }
-      });
+      const { fileId } = fileIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
 
@@ -255,11 +259,7 @@ export class FileAttachmentController {
    */
   static async uploadMultipleFiles(req: Request, res: Response) {
     try {
-      const { messageId } = await validate({
-        params: {
-          messageId: uuidSchema
-        }
-      });
+      const { messageId } = messageIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
       const orgId = (req as any).user?.orgId;
@@ -268,7 +268,7 @@ export class FileAttachmentController {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const files = req.files as Express.Multer.File[];
+      const files = ((req as Request & { files?: UploadedFile[] }).files || []) as UploadedFile[];
       
       if (!files || files.length === 0) {
         return res.status(400).json({ error: 'No files uploaded' });

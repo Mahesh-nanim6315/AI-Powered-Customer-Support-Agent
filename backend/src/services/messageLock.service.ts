@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { isRedisEnabled, redisConnection } from '../config/redis';
 
 interface LockInfo {
   ticketId: string;
@@ -12,17 +12,16 @@ interface LockInfo {
  * Message Lock Service - Prevents race conditions between AI and Agent responses
  */
 export class MessageLockService {
-  private redis: Redis;
   private lockTimeout: number = 120000; // 2 minutes in milliseconds
-
-  constructor() {
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
-  }
 
   /**
    * Acquire a lock for message processing
    */
   async acquireLock(lockInfo: Omit<LockInfo, 'acquiredAt' | 'expiresAt'>): Promise<boolean> {
+    if (!isRedisEnabled || !redisConnection) {
+      return true;
+    }
+
     const lockKey = `message_lock:${lockInfo.ticketId}:${lockInfo.lockType}`;
     const lockData = {
       ...lockInfo,
@@ -32,7 +31,7 @@ export class MessageLockService {
 
     try {
       // Use Redis SET with NX and EX for atomic lock acquisition
-      const result = await this.redis.set(
+      const result = await redisConnection.set(
         lockKey,
         JSON.stringify(lockData),
         'EX', // Expire after lockTimeout seconds
@@ -43,7 +42,7 @@ export class MessageLockService {
       return result === 'OK';
     } catch (error) {
       console.error('Failed to acquire message lock:', error);
-      return false;
+      return true;
     }
   }
 
@@ -51,10 +50,14 @@ export class MessageLockService {
    * Release a lock
    */
   async releaseLock(ticketId: string, lockType: string): Promise<void> {
+    if (!isRedisEnabled || !redisConnection) {
+      return;
+    }
+
     const lockKey = `message_lock:${ticketId}:${lockType}`;
     
     try {
-      await this.redis.del(lockKey);
+      await redisConnection.del(lockKey);
     } catch (error) {
       console.error('Failed to release message lock:', error);
     }
@@ -64,10 +67,14 @@ export class MessageLockService {
    * Check if a lock exists
    */
   async isLocked(ticketId: string, lockType: string): Promise<boolean> {
+    if (!isRedisEnabled || !redisConnection) {
+      return false;
+    }
+
     const lockKey = `message_lock:${ticketId}:${lockType}`;
     
     try {
-      const exists = await this.redis.exists(lockKey);
+      const exists = await redisConnection.exists(lockKey);
       return exists === 1;
     } catch (error) {
       console.error('Failed to check lock status:', error);
@@ -79,10 +86,14 @@ export class MessageLockService {
    * Get lock information
    */
   async getLockInfo(ticketId: string, lockType: string): Promise<LockInfo | null> {
+    if (!isRedisEnabled || !redisConnection) {
+      return null;
+    }
+
     const lockKey = `message_lock:${ticketId}:${lockType}`;
     
     try {
-      const lockData = await this.redis.get(lockKey);
+      const lockData = await redisConnection.get(lockKey);
       return lockData ? JSON.parse(lockData) : null;
     } catch (error) {
       console.error('Failed to get lock info:', error);
@@ -125,18 +136,22 @@ export class MessageLockService {
    * Clean up expired locks
    */
   async cleanupExpiredLocks(): Promise<void> {
+    if (!isRedisEnabled || !redisConnection) {
+      return;
+    }
+
     try {
       const pattern = 'message_lock:*';
-      const keys = await this.redis.keys(pattern);
+      const keys = await redisConnection.keys(pattern);
       
       for (const key of keys) {
-        const lockData = await this.redis.get(key);
+        const lockData = await redisConnection.get(key);
         if (lockData) {
           const lockInfo: LockInfo = JSON.parse(lockData);
           const expiresAt = new Date(lockInfo.expiresAt);
           
           if (expiresAt < new Date()) {
-            await this.redis.del(key);
+            await redisConnection.del(key);
             console.log(`Cleaned up expired lock: ${key}`);
           }
         }
@@ -150,12 +165,16 @@ export class MessageLockService {
    * Get all active locks for a ticket
    */
   async getTicketLocks(ticketId: string): Promise<LockInfo[]> {
+    if (!isRedisEnabled || !redisConnection) {
+      return [];
+    }
+
     const pattern = `message_lock:${ticketId}:*`;
-    const keys = await this.redis.keys(pattern);
+    const keys = await redisConnection.keys(pattern);
     const locks: LockInfo[] = [];
 
     for (const key of keys) {
-      const lockData = await this.redis.get(key);
+      const lockData = await redisConnection.get(key);
       if (lockData) {
         locks.push(JSON.parse(lockData));
       }
@@ -168,12 +187,16 @@ export class MessageLockService {
    * Force release all locks for a ticket (emergency use)
    */
   async forceReleaseTicketLocks(ticketId: string): Promise<void> {
+    if (!isRedisEnabled || !redisConnection) {
+      return;
+    }
+
     const pattern = `message_lock:${ticketId}:*`;
-    const keys = await this.redis.keys(pattern);
+    const keys = await redisConnection.keys(pattern);
 
     for (const key of keys) {
       try {
-        await this.redis.del(key);
+        await redisConnection.del(key);
         console.log(`Force released lock: ${key}`);
       } catch (error) {
         console.error(`Failed to force release lock ${key}:`, error);
@@ -185,11 +208,7 @@ export class MessageLockService {
    * Close Redis connection
    */
   async disconnect(): Promise<void> {
-    try {
-      await this.redis.quit();
-    } catch (error) {
-      console.error('Failed to disconnect from Redis:', error);
-    }
+    return;
   }
 }
 

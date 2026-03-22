@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { TicketService } from "./tickets.service";
 import { createTicketSchema, updateStatusSchema, updateTicketSchema } from "./tickets.validators";
+import { TicketAssignmentHistoryService } from "../../services/ticketAssignmentHistory.service";
+import { TicketActivityService } from "../../services/ticketActivity.service";
 import {
   normalizeTicketForApi,
   normalizeTicketListForApi,
@@ -214,6 +216,127 @@ export class TicketController {
     }
   }
 
+  static async getAssignmentHistory(req: any, res: Response) {
+    try {
+      const prisma = require("../../config/database").default;
+      const userId = req.user?.userId;
+
+      if (req.user.role === "AGENT") {
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            assignedAgent: {
+              userId
+            }
+          },
+          select: { id: true }
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      if (req.user.role === "CUSTOMER") {
+        const customer = await prisma.customer.findFirst({
+          where: {
+            orgId: req.user.orgId,
+            userId
+          },
+          select: { id: true }
+        });
+
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            OR: [
+              { createdByUserId: userId },
+              ...(customer ? [{ customerId: customer.id }] : [])
+            ]
+          },
+          select: { id: true }
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      const history = await TicketAssignmentHistoryService.getTicketHistory(req.params.id, req.user.orgId);
+      res.json({
+        success: true,
+        history: history.map((entry: any) => ({
+          id: entry.id,
+          action: entry.action,
+          reason: entry.reason,
+          createdAt: entry.createdAt,
+          agentEmail: entry.agent?.user?.email ?? null,
+          assignedBy: entry.assignedByUser?.email ?? null,
+          assignedByRole: entry.assignedByUser?.role ?? null,
+        })),
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  static async getActivity(req: any, res: Response) {
+    try {
+      const prisma = require("../../config/database").default;
+      const userId = req.user?.userId;
+
+      if (req.user.role === "AGENT") {
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            assignedAgent: {
+              userId,
+            },
+          },
+          select: { id: true },
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      if (req.user.role === "CUSTOMER") {
+        const customer = await prisma.customer.findFirst({
+          where: {
+            orgId: req.user.orgId,
+            userId,
+          },
+          select: { id: true },
+        });
+
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            OR: [
+              { createdByUserId: userId },
+              ...(customer ? [{ customerId: customer.id }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+
+      const activity = await TicketActivityService.getTicketActivity(req.params.id, req.user.orgId);
+      res.json({ success: true, activity });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
   static async updateStatus(req: any, res: Response) {
     try {
       const data = updateStatusSchema.parse(req.body);
@@ -240,6 +363,80 @@ export class TicketController {
         req.params.id,
         req.user.orgId,
         data.status
+      );
+
+      res.json(ticket);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  static async reopen(req: any, res: Response) {
+    try {
+      const prisma = require("../../config/database").default;
+      const userId = req.user?.userId;
+
+      if (req.user.role === "AGENT") {
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            assignedAgent: {
+              userId,
+            },
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+
+        if (!["RESOLVED", "CLOSED"].includes(String(allowedTicket.status))) {
+          return res.status(400).json({ message: "Only resolved or closed tickets can be reopened" });
+        }
+      }
+
+      if (req.user.role === "CUSTOMER") {
+        const customer = await prisma.customer.findFirst({
+          where: {
+            orgId: req.user.orgId,
+            userId,
+          },
+          select: { id: true },
+        });
+
+        const allowedTicket = await prisma.ticket.findFirst({
+          where: {
+            id: req.params.id,
+            orgId: req.user.orgId,
+            OR: [
+              { createdByUserId: userId },
+              ...(customer ? [{ customerId: customer.id }] : []),
+            ],
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        });
+
+        if (!allowedTicket) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+
+        if (!["RESOLVED", "CLOSED"].includes(String(allowedTicket.status))) {
+          return res.status(400).json({ message: "Only resolved or closed tickets can be reopened" });
+        }
+      }
+
+      const ticket = await TicketService.updateTicketStatus(
+        req.params.id,
+        req.user.orgId,
+        "IN_PROGRESS"
       );
 
       res.json(ticket);

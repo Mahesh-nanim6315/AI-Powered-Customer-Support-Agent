@@ -134,6 +134,17 @@ export function AdminDashboardPage() {
         </div>
       </div>
 
+      <Card className="dashboard-highlight">
+        <div className="dashboard-highlight__label">Operations Snapshot</div>
+        <div className="dashboard-highlight__title">
+          {analytics?.activeTickets ?? 0} active tickets, {analytics?.activeAgents ?? 0} agents available,{" "}
+          {Math.round((analytics?.escalationRate ?? 0) * 100)}% escalation rate
+        </div>
+        <div className="dashboard-highlight__detail">
+          Use this view to monitor queue pressure, AI effectiveness, and current team coverage.
+        </div>
+      </Card>
+
       {showLiveNotification && (
         <Alert type="info" title="Live Update" onClose={() => setShowLiveNotification(false)}>
           Dashboard metrics updated from live events.
@@ -182,6 +193,9 @@ export function AdminDashboardPage() {
                     <div className="ticket-meta">
                       {ticket.customer?.name || ticket.customer?.email || "Unknown customer"} -{" "}
                       {new Date(ticket.updatedAt).toLocaleDateString()}
+                    </div>
+                    <div className="ticket-preview">
+                      {ticket.messages?.[ticket.messages.length - 1]?.content?.slice(0, 84) || "No recent conversation yet"}
                     </div>
                   </div>
                   <div className={`ticket-status status--${ticket.status.toLowerCase()}`}>{ticket.status}</div>

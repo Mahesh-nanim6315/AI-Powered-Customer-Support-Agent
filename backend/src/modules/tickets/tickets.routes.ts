@@ -12,6 +12,9 @@ router.post("/", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.crea
 router.get("/", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getAll);
 router.get("/unassigned", allowRoles("ADMIN", "AGENT"), TicketController.getUnassigned);
 router.get("/:id", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getById);
+router.get("/:id/assignments", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getAssignmentHistory);
+router.get("/:id/activity", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.getActivity);
+router.post("/:id/reopen", allowRoles("ADMIN", "AGENT", "CUSTOMER"), TicketController.reopen);
 router.patch("/:id", allowRoles("ADMIN", "AGENT"), TicketController.update);
 router.patch("/:id/status", allowRoles("ADMIN", "AGENT"), TicketController.updateStatus);
 router.delete("/:id", allowRoles("ADMIN", "AGENT"), TicketController.delete);

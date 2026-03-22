@@ -4,12 +4,17 @@ import { io, Socket } from 'socket.io-client';
 const SOCKET_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 let socketInstance: Socket | null = null;
-let connectionAttemptInProgress = false;
+let socketToken: string | null = null;
 
 function createNewSocket(token: string): Socket {
-    if (!socketInstance || !socketInstance.connected) {
-        console.log('🔌 Creating new Socket.io connection to:', SOCKET_URL);
-        connectionAttemptInProgress = true;
+    const shouldReplaceSocket = !socketInstance || socketToken !== token;
+
+    if (shouldReplaceSocket) {
+        if (socketInstance) {
+            socketInstance.disconnect();
+        }
+
+        socketToken = token;
         socketInstance = io(SOCKET_URL, {
             auth: { token },
             reconnection: true,
@@ -19,24 +24,17 @@ function createNewSocket(token: string): Socket {
             transports: ['websocket', 'polling'],
         });
 
-        socketInstance.on('connect', () => {
-            console.log('✅ Socket.io connected! ID:', socketInstance?.id);
-            connectionAttemptInProgress = false;
-        });
-
         socketInstance.on('connect_error', (error) => {
-            console.error('🔴 Socket.io connection error:', error);
-            connectionAttemptInProgress = false;
-        });
-
-        socketInstance.on('disconnect', (reason) => {
-            console.log('🔌 Socket.io disconnected. Reason:', reason);
-            connectionAttemptInProgress = false;
+            console.error('Socket.io connection error:', error);
         });
     } else {
-        console.log('♻️ Reusing existing Socket.io connection:', socketInstance.id);
+        const currentSocket = socketInstance;
+        if (currentSocket && !currentSocket.connected) {
+            currentSocket.connect();
+        }
     }
-    return socketInstance;
+
+    return socketInstance as Socket;
 }
 
 function getSocket(token: string): Socket {
@@ -52,10 +50,10 @@ export function useSocket(token: string | null) {
 
     useEffect(() => {
         if (!token) {
-            console.log('❌ No token provided, disconnecting socket');
             if (socketInstance) {
                 socketInstance.disconnect();
                 socketInstance = null;
+                socketToken = null;
             }
             socketRef.current = null;
             setSocketState(null);
@@ -67,20 +65,16 @@ export function useSocket(token: string | null) {
         setSocketState(socket);
 
         return () => {
-            // Don't disconnect on unmount - keep the connection alive
-            console.log('🔄 Component unmounting, but keeping socket connection alive');
+            // Keep the shared socket alive across page-level unmounts.
         };
     }, [token]);
 
     const subscribe = useCallback((event: string, callback: (data: any) => void) => {
         if (!socketRef.current) {
-            console.warn('⚠️ Socket not available for subscription:', event);
             return;
         }
-        console.log('📡 Subscribing to event:', event);
         socketRef.current.on(event, callback);
         return () => {
-            console.log('📴 Unsubscribing from event:', event);
             socketRef.current?.off(event, callback);
         };
     }, []);
@@ -88,10 +82,8 @@ export function useSocket(token: string | null) {
     const emit = useCallback((event: string, data: any) => {
         const sock = socketRef.current || socketState;
         if (!sock) {
-            console.warn('⚠️ Socket not available for emit:', event);
             return;
         }
-        console.log('📤 Emitting event:', event, data);
         sock.emit(event, data);
     }, [socketState]);
 
@@ -103,11 +95,9 @@ export function useSocketEvent(token: string | null, event: string, callback: (d
         if (!token) return;
 
         const socket = getSocket(token);
-        console.log('📡 useSocketEvent - listening for:', event);
         socket.on(event, callback);
 
         return () => {
-            console.log('📴 useSocketEvent - unlistening from:', event);
             socket.off(event, callback);
         };
     }, [token, event, callback]);
@@ -117,11 +107,9 @@ export function useEmitSocket(token: string | null) {
     return useCallback(
         (event: string, data: any) => {
             if (!token) {
-                console.warn('⚠️ No token for emit socket');
                 return;
             }
             const socket = getSocket(token);
-            console.log('📤 useEmitSocket - emitting:', event);
             socket.emit(event, data);
         },
         [token]

@@ -1,5 +1,5 @@
 import { apiClient } from '../lib/api-client';
-import type { Ticket, TicketMessage, CreateTicketRequest } from '../types';
+import type { Ticket, TicketMessage, CreateTicketRequest, TicketAssignmentHistoryEntry, TicketActivityEntry } from '../types';
 
 export interface SendMessageResponse {
     success: boolean;
@@ -21,12 +21,24 @@ export const ticketsService = {
         return apiClient.get<Ticket>(`/tickets/${id}`);
     },
 
+    async getAssignmentHistory(id: string): Promise<{ success: boolean; history: TicketAssignmentHistoryEntry[] }> {
+        return apiClient.get<{ success: boolean; history: TicketAssignmentHistoryEntry[] }>(`/tickets/${id}/assignments`);
+    },
+
+    async getActivity(id: string): Promise<{ success: boolean; activity: TicketActivityEntry[] }> {
+        return apiClient.get<{ success: boolean; activity: TicketActivityEntry[] }>(`/tickets/${id}/activity`);
+    },
+
     async create(data: CreateTicketRequest): Promise<Ticket> {
         return apiClient.post<Ticket>('/tickets', data);
     },
 
     async updateStatus(id: string, status: string): Promise<Ticket> {
         return apiClient.patch<Ticket>(`/tickets/${id}/status`, { status });
+    },
+
+    async reopen(id: string): Promise<Ticket> {
+        return apiClient.post<Ticket>(`/tickets/${id}/reopen`);
     },
 
     async update(

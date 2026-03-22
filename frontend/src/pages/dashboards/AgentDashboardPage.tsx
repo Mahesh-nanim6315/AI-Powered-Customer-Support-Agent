@@ -32,6 +32,40 @@ function isOwnedByAgent(ticket: Ticket, currentAgent?: Agent) {
   );
 }
 
+function getLatestMessage(ticket: Ticket) {
+  const messages = ticket.messages || [];
+  if (messages.length === 0) {
+    return null;
+  }
+
+  return [...messages].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )[0];
+}
+
+function getAgentQueueState(ticket: Ticket) {
+  const latestMessage = getLatestMessage(ticket);
+
+  if (!latestMessage) {
+    return {
+      label: "Needs first response",
+      tone: "warning" as const,
+    };
+  }
+
+  if (latestMessage.role === "CUSTOMER") {
+    return {
+      label: "Customer replied",
+      tone: "warning" as const,
+    };
+  }
+
+  return {
+    label: "Waiting on customer",
+    tone: "secondary" as const,
+  };
+}
+
 export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
   const ticketsQuery = useTickets();
   const unassignedQuery = useUnassignedTickets(true);
@@ -76,6 +110,11 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
   const inProgressTickets = myTickets.filter((ticket) => ticket.status === "IN_PROGRESS");
   const escalatedTickets = myTickets.filter((ticket) => ticket.status === "ESCALATED");
   const highPriorityTickets = myTickets.filter((ticket) => ticket.priority === "HIGH");
+  const customerRepliedTickets = myTickets.filter((ticket) => getLatestMessage(ticket)?.role === "CUSTOMER");
+  const waitingOnCustomerTickets = myTickets.filter((ticket) => {
+    const latestMessage = getLatestMessage(ticket);
+    return latestMessage?.role === "AGENT" || latestMessage?.role === "AI";
+  });
   const availableAgents = agents.filter((agent) => !agent.busyStatus);
 
   const metrics: MetricCard[] = [
@@ -88,9 +127,9 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
     },
     {
       icon: Clock3,
-      label: "In Progress",
-      value: inProgressTickets.length,
-      detail: "Actively being worked",
+      label: "Customer Replied",
+      value: customerRepliedTickets.length,
+      detail: "Need your response",
       color: "purple",
     },
     {
@@ -117,6 +156,17 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
           <p className="page-subtitle">Agent workbench for assigned work, queue pressure, and team availability</p>
         </div>
       </div>
+
+      <Card className="dashboard-highlight dashboard-highlight--agent">
+        <div className="dashboard-highlight__label">Queue Snapshot</div>
+        <div className="dashboard-highlight__title">
+          {customerRepliedTickets.length} waiting for your reply, {waitingOnCustomerTickets.length} waiting on customer,{" "}
+          {unassignedTickets.length} available in queue
+        </div>
+        <div className="dashboard-highlight__detail">
+          Prioritize customer replies first, then escalations, then available unassigned work.
+        </div>
+      </Card>
 
       {showLiveNotification && (
         <Alert type="info" title="Live Update" onClose={() => setShowLiveNotification(false)}>
@@ -166,8 +216,16 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
                     <div className="ticket-meta">
                       {ticket.customer?.name || ticket.customer?.email || "Unknown customer"} - {ticket.priority} priority
                     </div>
+                    <div className="ticket-meta" style={{ marginTop: "0.35rem" }}>
+                      {getLatestMessage(ticket)?.content?.slice(0, 72) || "No messages yet"}
+                    </div>
                   </div>
-                  <div className={`ticket-status status--${ticket.status.toLowerCase()}`}>{ticket.status}</div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.35rem" }}>
+                    <div className={`ticket-status status--${ticket.status.toLowerCase()}`}>{ticket.status}</div>
+                    <div className={`ticket-status status--${getAgentQueueState(ticket).tone}`}>
+                      {getAgentQueueState(ticket).label}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -208,16 +266,16 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
             <span className="stat-value">{highPriorityTickets.length}</span>
           </div>
           <div className="stat-item">
-            <span className="stat-label">Team Available</span>
-            <span className="stat-value">{availableAgents.length}</span>
+            <span className="stat-label">Waiting on Customer</span>
+            <span className="stat-value">{waitingOnCustomerTickets.length}</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">My Active Load</span>
             <span className="stat-value">{currentAgent?.activeTickets ?? myTickets.length}</span>
           </div>
           <div className="stat-item">
-            <span className="stat-label">AI-Owned Queue</span>
-            <span className="stat-value">{tickets.filter((ticket) => ticket.status === "AI_IN_PROGRESS").length}</span>
+            <span className="stat-label">Team Available</span>
+            <span className="stat-value">{availableAgents.length}</span>
           </div>
         </div>
       </Card>

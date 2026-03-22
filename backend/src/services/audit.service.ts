@@ -3,6 +3,10 @@ import { db } from '../config/database-performance';
 
 const auditDb = db as any;
 
+function hasAuditModel(modelName: 'ticketAuditLog' | 'userActivityLog' | 'systemEventLog') {
+  return Boolean(auditDb?.[modelName] && typeof auditDb[modelName].create === 'function');
+}
+
 export interface AuditLogData {
   userId?: string;
   orgId: string;
@@ -39,6 +43,10 @@ export class AuditService {
    */
   static async logTicketAction(data: AuditLogData & { ticketId: string }) {
     try {
+      if (!hasAuditModel('ticketAuditLog')) {
+        return;
+      }
+
       await auditDb.ticketAuditLog.create({
         data: {
           ticketId: data.ticketId,
@@ -62,6 +70,10 @@ export class AuditService {
     action: 'LOGIN' | 'LOGOUT' | 'TICKET_VIEWED' | 'MESSAGE_SENT' | 'TICKET_CREATED' | 'TICKET_UPDATED' | 'CUSTOMER_CREATED' | 'KNOWLEDGE_CREATED' | 'SETTINGS_UPDATED';
   }) {
     try {
+      if (!hasAuditModel('userActivityLog')) {
+        return;
+      }
+
       await auditDb.userActivityLog.create({
         data: {
           userId: data.userId,
@@ -84,6 +96,10 @@ export class AuditService {
    */
   static async logSystemEvent(data: SystemEventData) {
     try {
+      if (!hasAuditModel('systemEventLog')) {
+        return;
+      }
+
       await auditDb.systemEventLog.create({
         data: {
           eventType: data.eventType,
@@ -136,6 +152,10 @@ export class AuditService {
    */
   static async getTicketAuditTrail(ticketId: string, orgId: string) {
     try {
+      if (!hasAuditModel('ticketAuditLog')) {
+        return [];
+      }
+
       return await auditDb.ticketAuditLog.findMany({
         where: {
           ticketId,
@@ -166,6 +186,10 @@ export class AuditService {
    */
   static async getUserActivity(userId: string, orgId: string, limit: number = 50) {
     try {
+      if (!hasAuditModel('userActivityLog')) {
+        return [];
+      }
+
       return await auditDb.userActivityLog.findMany({
         where: {
           userId,
@@ -196,6 +220,10 @@ export class AuditService {
     limit: number = 100
   ) {
     try {
+      if (!hasAuditModel('systemEventLog')) {
+        return [];
+      }
+
       const where: any = {};
       
       if (filters.orgId) where.orgId = filters.orgId;
@@ -227,6 +255,15 @@ export class AuditService {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+
+      if (!hasAuditModel('ticketAuditLog') || !hasAuditModel('userActivityLog') || !hasAuditModel('systemEventLog')) {
+        return {
+          ticketAuditDeleted: 0,
+          userActivityDeleted: 0,
+          systemEventsDeleted: 0,
+          cutoffDate,
+        };
+      }
 
       const [ticketAuditDeleted, userActivityDeleted, systemEventsDeleted] = await Promise.all([
         auditDb.ticketAuditLog.deleteMany({

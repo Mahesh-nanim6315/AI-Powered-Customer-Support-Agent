@@ -81,13 +81,13 @@ class MemoryRateLimit {
 // Rate limiting configurations for different endpoints
 const rateLimits = {
   // General API limits
-  default: new MemoryRateLimit(15 * 60 * 1000, 100), // 100 requests per 15 minutes
+  default: new MemoryRateLimit(15 * 60 * 1000, 300), // 300 requests per 15 minutes
   
   // Authentication endpoints (stricter)
   auth: new MemoryRateLimit(15 * 60 * 1000, 10), // 10 requests per 15 minutes
   
   // Message sending (more lenient for real-time chat)
-  messages: new MemoryRateLimit(60 * 1000, 60), // 60 requests per minute
+  messages: new MemoryRateLimit(60 * 1000, 120), // 120 requests per minute
   
   // File uploads
   uploads: new MemoryRateLimit(60 * 1000, 10), // 10 uploads per minute

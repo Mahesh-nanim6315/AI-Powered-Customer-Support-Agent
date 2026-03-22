@@ -18,6 +18,7 @@ import { AiSuggestionsPage } from './pages/AiSuggestionsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { AiSettingsPage } from './pages/AiSettingsPage';
 import { LogsPage } from './pages/LogsPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { authService } from './services/auth.service';
 import type { AuthUser } from './types';
 import './App.css';
@@ -28,6 +29,14 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
       gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
+      refetchOnWindowFocus: false,
+      retry: (failureCount, error: any) => {
+        const status = error?.response?.status;
+        if (status === 401 || status === 403 || status === 429) {
+          return false;
+        }
+        return failureCount < 1;
+      },
     },
   },
 });
@@ -35,20 +44,15 @@ const queryClient = new QueryClient({
 function loadStoredUser(): AuthUser | null {
   try {
     const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    console.log('📦 Stored user raw:', raw);
     if (!raw) {
-      console.log('❌ No stored user found');
       return null;
     }
     const user = JSON.parse(raw) as AuthUser;
-    console.log('✅ Loaded user from localStorage:', user);
     if (user.token) {
       authService.setToken(user.token);
-      console.log('🔐 Token set in authService');
     }
     return user;
   } catch (error) {
-    console.error('❌ Error loading stored user:', error);
     return null;
   }
 }
@@ -73,9 +77,7 @@ function App() {
   const [isSignupMode, setIsSignupMode] = useState(false);
 
   useEffect(() => {
-    console.log('🚀 App initializing, loading stored user...');
     const storedUser = loadStoredUser();
-    console.log('📦 Setting user state to:', storedUser ? storedUser.email : 'null');
     setUser(storedUser);
     setBootstrapped(true);
   }, []);
@@ -83,21 +85,17 @@ function App() {
   useEffect(() => {
     // Only persist to localStorage AFTER bootstrap is complete
     if (!bootstrapped) {
-      console.log('⏳ Skipping persist - still bootstrapping');
       return;
     }
 
     if (!user) {
-      console.log('❌ User is null after bootstrap, clearing localStorage');
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
       authService.clearToken();
       return;
     }
 
-    console.log('💾 Persisting user to localStorage:', user.email);
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     authService.setToken(user.token);
-    console.log('✅ User persisted with token');
   }, [user, bootstrapped]);
 
   useEffect(() => {
@@ -166,6 +164,14 @@ function App() {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage user={user} />} />
                   <Route path="/tickets" element={<TicketsPage user={user} />} />
+                  <Route
+                    path="/notifications"
+                    element={
+                      <RoleRoute user={user} allowedRoles={['CUSTOMER']}>
+                        <NotificationsPage />
+                      </RoleRoute>
+                    }
+                  />
                   <Route
                     path="/customers"
                     element={

@@ -23,7 +23,7 @@ export function RealtimeProvider({ children, token }: { children: ReactNode; tok
   const [ticketCreated, setTicketCreated] = useState<Record<string, any>>({});
 
   const { subscribe, socket } = useSocket(token);
-  const hasSetupListenersRef = useRef(false);
+  const subscriptionsReadyRef = useRef(false);
 
   useEffect(() => {
     if (socket && socket.connected) {
@@ -34,11 +34,11 @@ export function RealtimeProvider({ children, token }: { children: ReactNode; tok
   }, [socket?.connected]);
 
   useEffect(() => {
-    if (!socket || !subscribe || hasSetupListenersRef.current) {
+    if (!socket || !subscribe || subscriptionsReadyRef.current) {
       return;
     }
 
-    hasSetupListenersRef.current = true;
+    subscriptionsReadyRef.current = true;
 
     if (socket.connected) {
       setIsConnected(true);
@@ -91,6 +91,7 @@ export function RealtimeProvider({ children, token }: { children: ReactNode; tok
     socket.on('disconnect', onDisconnect);
 
     return () => {
+      subscriptionsReadyRef.current = false;
       unsubscribeTicketUpdated?.();
       unsubscribeTicketUpdate?.();
       unsubscribeMessageAdded?.();

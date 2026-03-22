@@ -67,12 +67,42 @@ export interface Ticket {
   assignedAgent?: Agent;
 }
 
+export interface TicketAssignmentHistoryEntry {
+  id: string;
+  action: "ASSIGNED" | "REASSIGNED" | "UNASSIGNED" | "AUTO_ASSIGNED";
+  reason?: string | null;
+  createdAt: string;
+  agentEmail?: string | null;
+  assignedBy?: string | null;
+  assignedByRole?: UserRole | null;
+}
+
+export interface TicketActivityEntry {
+  id: string;
+  type: "TICKET_CREATED" | "MESSAGE" | "STATUS_CHANGE" | "ASSIGNMENT";
+  createdAt: string;
+  actor: string;
+  description: string;
+}
+
 export interface TicketMessage {
   id: string;
   ticketId: string;
   senderId?: string;
   role: MessageRole;
   content: string;
+  createdAt: string;
+}
+
+export interface FileAttachment {
+  id: string;
+  messageId: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  uploadedBy: string;
   createdAt: string;
 }
 
@@ -205,4 +235,50 @@ export interface AgentPerformance {
   avgResolutionTime: number;
   busyStatus: boolean;
   activeTickets: number;
+}
+
+// ============ NOTIFICATIONS ============
+export type NotificationType =
+  | "TICKET_CREATED"
+  | "TICKET_UPDATED"
+  | "TICKET_ASSIGNED"
+  | "TICKET_RESOLVED"
+  | "TICKET_ESCALATED"
+  | "MESSAGE_RECEIVED";
+
+export interface CustomerNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  ticketId?: string | null;
+  data?: Record<string, any> | null;
+}
+
+export interface NotificationsPagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface NotificationsResponse {
+  success: boolean;
+  notifications: CustomerNotification[];
+  pagination: NotificationsPagination;
+}
+
+export interface NotificationStatsResponse {
+  success: boolean;
+  stats: {
+    total: number;
+    read: number;
+    unread: number;
+    statsByType: Record<string, number>;
+  };
+  generatedAt: string;
 }

@@ -49,6 +49,19 @@ export function useUpdateTicketStatus(): UseMutationResult<Ticket, Error, { id: 
     });
 }
 
+export function useReopenTicket(): UseMutationResult<Ticket, Error, { id: string }> {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id }) => ticketsService.reopen(id),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['tickets', data.id] });
+            queryClient.invalidateQueries({ queryKey: ['tickets', data.id, 'assignments'] });
+        },
+    });
+}
+
 export function useUpdateTicket(): UseMutationResult<
     Ticket,
     Error,

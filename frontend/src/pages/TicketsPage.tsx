@@ -1,29 +1,41 @@
-﻿import { useState, useEffect } from 'react';
-import { useTickets, useUnassignedTickets, useCreateTicket, useUpdateTicketStatus, useTicket, useAddMessage, useUpdateTicket, useDeleteTicket } from '../hooks/useTickets';
+﻿import { useState, useEffect, useRef } from 'react';
+import { useTickets, useUnassignedTickets, useCreateTicket, useUpdateTicketStatus, useTicket, useAddMessage, useUpdateTicket, useDeleteTicket, useReopenTicket } from '../hooks/useTickets';
 import { useCustomers } from '../hooks/useCustomers';
+import { useMarkMessagesRead, useTicketUnreadCount } from '../hooks/useReadReceipts';
+import { useUploadAttachments } from '../hooks/useAttachments';
+import { useTicketAssignmentHistory } from '../hooks/useTicketAssignments';
+import { useTicketActivity } from '../hooks/useTicketActivity';
 import { useRealtime } from '../context/RealtimeContext';
 import { useEmitSocket } from '../hooks/useSocket';
 import { Card, Button, Input, Select, Badge, Spinner, Modal, TextArea, Alert } from '../components';
-import { ChevronRight, Plus, Zap, Search, MessageSquare } from 'lucide-react';
-import type { TicketStatus, AuthUser } from '../types';
+import { ChevronRight, Plus, Zap, Search, MessageSquare, ArrowLeft } from 'lucide-react';
+import type { TicketStatus, AuthUser, FileAttachment } from '../types';
 import '../page.css';
+import { attachmentService } from '../services/attachment.service';
+import { useSearchParams } from 'react-router-dom';
 
 interface TicketsPageProps {
   user?: AuthUser | null;
 }
 
 export function TicketsPage({ user }: TicketsPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const ticketsQuery = useTickets();
   const customersQuery = useCustomers(user?.role !== 'CUSTOMER');
   const isAgent = user?.role === 'AGENT';
   const unassignedTicketsQuery = useUnassignedTickets(Boolean(isAgent));
   const createTicketMutation = useCreateTicket();
   const updateStatusMutation = useUpdateTicketStatus();
+  const reopenTicketMutation = useReopenTicket();
   const updateTicketMutation = useUpdateTicket();
   const deleteTicketMutation = useDeleteTicket();
   const addMessageMutation = useAddMessage();
+  const markMessagesReadMutation = useMarkMessagesRead();
+  const uploadAttachmentsMutation = useUploadAttachments();
   const realtime = useRealtime();
   const emitSocket = useEmitSocket(user?.token || null);
+  const lastReadBatchRef = useRef('');
+  const joinedTicketRef = useRef<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -36,6 +48,8 @@ export function TicketsPage({ user }: TicketsPageProps) {
   const [messageText, setMessageText] = useState('');
   const [currentAiMode, setCurrentAiMode] = useState<'llm' | 'kb_fallback' | 'safe_fallback' | null>(null);
   const [agentView, setAgentView] = useState<'my' | 'unassigned'>('my');
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [attachmentsByMessage, setAttachmentsByMessage] = useState<Record<string, FileAttachment[]>>({});
   const [createFormData, setCreateFormData] = useState({
     customerId: '',
     subject: '',
@@ -53,13 +67,29 @@ export function TicketsPage({ user }: TicketsPageProps) {
   const customers = customersQuery.data || [];
   const selectedTicket = selectedTicketQuery.data;
   const isAdmin = user?.role === 'ADMIN';
+  const unreadCountQuery = useTicketUnreadCount(selectedTicketId || '', Boolean(selectedTicketId && !isAdmin));
+  const assignmentHistoryQuery = useTicketAssignmentHistory(selectedTicketId || '', Boolean(selectedTicketId));
+  const activityQuery = useTicketActivity(selectedTicketId || '', Boolean(selectedTicketId));
   const activeTickets = isAgent && agentView === 'unassigned' ? unassignedTickets : tickets;
+  const showMobileThread = Boolean(selectedTicketId && !isAdmin);
 
   useEffect(() => {
     if (user?.role === 'CUSTOMER' && user?.id && !createFormData.customerId) {
       setCreateFormData((prev) => ({ ...prev, customerId: user.id }));
     }
   }, [user?.role, user?.id]);
+
+  useEffect(() => {
+    const ticketIdFromUrl = searchParams.get('ticketId');
+    if (!ticketIdFromUrl || selectedTicketId === ticketIdFromUrl) {
+      return;
+    }
+
+    const existsInCurrentList = [...tickets, ...unassignedTickets].some((ticket) => ticket.id === ticketIdFromUrl);
+    if (existsInCurrentList) {
+      setSelectedTicketId(ticketIdFromUrl);
+    }
+  }, [searchParams, selectedTicketId, tickets, unassignedTickets]);
 
   useEffect(() => {
     if (realtime.ticketCreated.id || realtime.ticketUpdated.id) {
@@ -72,8 +102,27 @@ export function TicketsPage({ user }: TicketsPageProps) {
   }, [realtime.ticketCreated, realtime.ticketUpdated, ticketsQuery, unassignedTicketsQuery, isAgent]);
 
   useEffect(() => {
-    if (!selectedTicketId) return;
+    if (!selectedTicketId) {
+      if (joinedTicketRef.current) {
+        emitSocket('leave-ticket', joinedTicketRef.current);
+        joinedTicketRef.current = null;
+      }
+      return;
+    }
+
+    if (joinedTicketRef.current && joinedTicketRef.current !== selectedTicketId) {
+      emitSocket('leave-ticket', joinedTicketRef.current);
+    }
+
     emitSocket('join-ticket', selectedTicketId);
+    joinedTicketRef.current = selectedTicketId;
+
+    return () => {
+      if (joinedTicketRef.current === selectedTicketId) {
+        emitSocket('leave-ticket', selectedTicketId);
+        joinedTicketRef.current = null;
+      }
+    };
   }, [selectedTicketId, emitSocket]);
 
   useEffect(() => {
@@ -82,8 +131,10 @@ export function TicketsPage({ user }: TicketsPageProps) {
       selectedTicketQuery.refetch();
       ticketsQuery.refetch();
       if (isAgent) unassignedTicketsQuery.refetch();
+      unreadCountQuery.refetch();
+      activityQuery.refetch();
     }
-  }, [selectedTicketId, realtime.messageAdded, selectedTicketQuery, ticketsQuery, unassignedTicketsQuery, isAgent]);
+  }, [selectedTicketId, realtime.messageAdded, selectedTicketQuery, ticketsQuery, unassignedTicketsQuery, isAgent, unreadCountQuery, activityQuery]);
 
   useEffect(() => {
     if (!selectedTicketId) return;
@@ -111,6 +162,64 @@ export function TicketsPage({ user }: TicketsPageProps) {
     });
   }, [selectedTicket?.id]);
 
+  useEffect(() => {
+    if (isAdmin || !selectedTicket?.messages?.length) {
+      return;
+    }
+
+    const messageIds = (selectedTicket.messages || [])
+      .filter((message) => message.senderId !== user?.id)
+      .map((message) => message.id);
+
+    if (messageIds.length === 0) {
+      return;
+    }
+
+    const batchKey = `${selectedTicket.id}:${messageIds.join(',')}`;
+    if (lastReadBatchRef.current === batchKey) {
+      return;
+    }
+    lastReadBatchRef.current = batchKey;
+
+    markMessagesReadMutation.mutate(messageIds, {
+      onSuccess: () => {
+        unreadCountQuery.refetch();
+      },
+    });
+  }, [selectedTicket?.id, selectedTicket?.updatedAt, isAdmin, user?.id]);
+
+  useEffect(() => {
+    if (!selectedTicket?.messages?.length) {
+      setAttachmentsByMessage({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAttachments = async () => {
+      const entries = await Promise.all(
+        (selectedTicket.messages || []).map(async (message) => {
+          try {
+            const result = await attachmentService.getMessageAttachments(message.id);
+            return [message.id, result.attachments] as const;
+          } catch {
+            return [message.id, []] as const;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setAttachmentsByMessage(Object.fromEntries(entries));
+      }
+    };
+
+    loadAttachments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTicket?.id, selectedTicket?.updatedAt]);
+
   const filteredActiveTickets = activeTickets.filter((ticket) => {
     const matchesSearch =
       ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -122,6 +231,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
 
   const canUpdateStatus = user?.role === 'ADMIN' || user?.role === 'AGENT';
   const canEditOrDeleteTicket = user?.role === 'ADMIN' || user?.role === 'AGENT';
+  const canReopenTicket = user?.role === 'CUSTOMER' && ['RESOLVED', 'CLOSED'].includes(selectedTicket?.status || '');
   const statusOptions: TicketStatus[] = ['OPEN', 'AI_IN_PROGRESS', 'ESCALATED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
   const handleCreateTicket = async () => {
@@ -153,8 +263,31 @@ export function TicketsPage({ user }: TicketsPageProps) {
       ticketsQuery.refetch();
       if (isAgent) unassignedTicketsQuery.refetch();
       if (selectedTicketId === ticketId) selectedTicketQuery.refetch();
+      if (selectedTicketId === ticketId) assignmentHistoryQuery.refetch();
+      if (selectedTicketId === ticketId) activityQuery.refetch();
     } catch (error) {
       console.error('Failed to update ticket status:', error);
+    }
+  };
+
+  const handleReopenTicket = async (ticketId: string) => {
+    try {
+      await reopenTicketMutation.mutateAsync({ id: ticketId });
+      ticketsQuery.refetch();
+      if (isAgent) unassignedTicketsQuery.refetch();
+      if (selectedTicketId === ticketId) selectedTicketQuery.refetch();
+      if (selectedTicketId === ticketId) assignmentHistoryQuery.refetch();
+      if (selectedTicketId === ticketId) activityQuery.refetch();
+    } catch (error) {
+      console.error('Failed to reopen ticket:', error);
+    }
+  };
+
+  const handleDownloadAttachment = async (fileId: string, originalName: string) => {
+    try {
+      await attachmentService.downloadFile(fileId, originalName);
+    } catch (error) {
+      console.error('Failed to download attachment:', error);
     }
   };
 
@@ -208,6 +341,13 @@ export function TicketsPage({ user }: TicketsPageProps) {
     if (!selectedTicketId || !messageText.trim()) return;
     try {
       const response = await addMessageMutation.mutateAsync({ ticketId: selectedTicketId, content: messageText.trim() });
+      if (pendingFiles.length > 0) {
+        await uploadAttachmentsMutation.mutateAsync({
+          messageId: response.userMessage.id,
+          files: pendingFiles,
+        });
+        setPendingFiles([]);
+      }
       setMessageText('');
       if (response.aiMode) {
         setCurrentAiMode(response.aiMode);
@@ -230,6 +370,15 @@ export function TicketsPage({ user }: TicketsPageProps) {
       console.error('Failed to send message:', error);
       alert('Failed to send message. Please check connection and retry.');
     }
+  };
+
+  const handleMobileBackToList = () => {
+    setSelectedTicketId(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('ticketId');
+      return next;
+    });
   };
 
   const priorityColors: Record<string, 'danger' | 'warning' | 'success'> = {
@@ -268,6 +417,66 @@ export function TicketsPage({ user }: TicketsPageProps) {
     safe_fallback: 'danger',
   };
 
+  const getLatestMessage = (ticket: typeof filteredActiveTickets[number]) => {
+    const messages = ticket.messages || [];
+    if (messages.length === 0) {
+      return null;
+    }
+
+    return [...messages].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+  };
+
+  const getTicketListSummary = (ticket: typeof filteredActiveTickets[number]) => {
+    const latestMessage = getLatestMessage(ticket);
+
+    if (!latestMessage) {
+      return {
+        preview: ticket.description || 'No messages yet',
+        helper: 'Awaiting first response',
+        helperVariant: 'secondary' as const,
+      };
+    }
+
+    const preview =
+      latestMessage.content.length > 72
+        ? `${latestMessage.content.slice(0, 72)}...`
+        : latestMessage.content;
+
+    if (user?.role === 'CUSTOMER') {
+      if (latestMessage.role === 'CUSTOMER') {
+        return {
+          preview,
+          helper: 'Awaiting support',
+          helperVariant: 'warning' as const,
+        };
+      }
+
+      return {
+        preview,
+        helper: latestMessage.role === 'AI' ? 'New AI reply' : 'New agent reply',
+        helperVariant: 'info' as const,
+      };
+    }
+
+    if (latestMessage.role === 'CUSTOMER') {
+      return {
+        preview,
+        helper: 'Customer replied',
+        helperVariant: 'warning' as const,
+      };
+    }
+
+    return {
+      preview,
+      helper: latestMessage.role === 'AI' ? 'Last update from AI' : 'Last update from agent',
+      helperVariant: 'secondary' as const,
+    };
+  };
+
+  const selectedTicketLatestMessage = selectedTicket ? getLatestMessage(selectedTicket as any) : null;
+
   if (ticketsQuery.isLoading || customersQuery.isLoading || (isAgent && unassignedTicketsQuery.isLoading)) {
     return (
       <div className="page">
@@ -305,7 +514,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
       )}
 
       <div className="tickets-workspace">
-        <Card className="tickets-pane tickets-pane--list">
+        <Card className={`tickets-pane tickets-pane--list ${showMobileThread ? 'tickets-pane--list-collapsed' : ''}`}>
           {isAgent && (
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
               <Button
@@ -358,65 +567,106 @@ export function TicketsPage({ user }: TicketsPageProps) {
           </div>
 
           <div className="tickets-list tickets-list--compact">
-            {filteredActiveTickets.map((ticket) => (
-              <Card
-                key={ticket.id}
-                hoverable
-                onClick={() => {
-                  if (isAdmin) return;
-                  setSelectedTicketId(ticket.id);
-                }}
-                className={`ticket-card ${selectedTicketId === ticket.id ? 'ticket-card--active' : ''}`}
-              >
-                <div className="ticket-content">
-                  <div className="ticket-main">
-                    <h3 className="ticket-title">{ticket.subject}</h3>
-                    <p className="ticket-customer">{ticket.customer?.name || 'Unknown Customer'}</p>
-                    <div className="ticket-meta">
-                      <span>{new Date(ticket.createdAt).toLocaleDateString()}</span>
-                      <span>•</span>
-                      <span>{ticket.messages?.length || 0} messages</span>
+            {filteredActiveTickets.map((ticket) => {
+              const summary = getTicketListSummary(ticket);
+
+              return (
+                <Card
+                  key={ticket.id}
+                  hoverable
+                  onClick={() => {
+                    if (isAdmin) return;
+                    setSelectedTicketId(ticket.id);
+                    setSearchParams((prev) => {
+                      const next = new URLSearchParams(prev);
+                      next.set('ticketId', ticket.id);
+                      return next;
+                    });
+                  }}
+                  className={`ticket-card ${selectedTicketId === ticket.id ? 'ticket-card--active' : ''}`}
+                >
+                  <div className="ticket-content">
+                    <div className="ticket-main">
+                      <h3 className="ticket-title">{ticket.subject}</h3>
+                      <p className="ticket-customer">{ticket.customer?.name || 'Unknown Customer'}</p>
+                      <div className="ticket-meta" style={{ marginBottom: '0.35rem' }}>
+                        <span>{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span>{ticket.messages?.length || 0} messages</span>
+                      </div>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '0.35rem' }}>
+                        {summary.preview}
+                      </div>
+                      <Badge variant={summary.helperVariant as any}>{summary.helper}</Badge>
+                    </div>
+                    <div className="ticket-side">
+                      <div className="ticket-badges">
+                        <Badge variant={statusColors[ticket.status] as any}>
+                          {statusLabelMap[ticket.status] || ticket.status}
+                        </Badge>
+                        <Badge variant={priorityColors[ticket.priority] as any}>{ticket.priority}</Badge>
+                      </div>
+                      <ChevronRight size={20} className="ticket-arrow" />
                     </div>
                   </div>
-                  <div className="ticket-side">
-                    <div className="ticket-badges">
-                      <Badge variant={statusColors[ticket.status] as any}>
-                        {statusLabelMap[ticket.status] || ticket.status}
-                      </Badge>
-                      <Badge variant={priorityColors[ticket.priority] as any}>{ticket.priority}</Badge>
-                    </div>
-                    <ChevronRight size={20} className="ticket-arrow" />
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         </Card>
 
-        <Card className="tickets-pane tickets-pane--chat">
+        <Card className={`tickets-pane tickets-pane--chat ${!selectedTicketId && !isAdmin ? 'tickets-pane--chat-empty' : ''}`}>
           {isAdmin ? (
             <div className="empty-state">
               <MessageSquare size={48} />
               <p>Admin view is read-only. Chat is disabled.</p>
             </div>
           ) : !selectedTicketId ? (
-            <div className="empty-state">
+            <div className="empty-state ticket-empty-state">
               <MessageSquare size={48} />
+              <p>Select a ticket to open the conversation</p>
+              <p className="text-muted">
+                Review the latest reply state on the left, then open the thread to respond, download files, or change status.
+              </p>
             </div>
           ) : selectedTicketQuery.isLoading ? (
             <Spinner />
           ) : (
             <div className="chat-panel">
               <div className="chat-header">
-                <div>
+                <div className="chat-header-main">
+                  {showMobileThread && (
+                    <div className="chat-header-back">
+                      <Button
+                        variant="secondary"
+                        onClick={handleMobileBackToList}
+                      >
+                        <ArrowLeft size={16} />
+                        Back to tickets
+                      </Button>
+                    </div>
+                  )}
                   <h3 style={{ margin: 0 }}>{selectedTicket?.subject}</h3>
                   <div className="ticket-meta" style={{ marginTop: '0.35rem' }}>
                     <span>{selectedTicket?.customer?.name || 'Unknown Customer'}</span>
                     <span>•</span>
                     <span>{selectedTicket?.id}</span>
                   </div>
+                  <div className="ticket-thread-summary">
+                    <span>
+                      Last update:{' '}
+                      {selectedTicketLatestMessage
+                        ? `${selectedTicketLatestMessage.role} • ${new Date(selectedTicketLatestMessage.createdAt).toLocaleString()}`
+                        : 'No messages yet'}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div className="chat-header-actions">
+                  {!isAdmin && (
+                    <Badge variant={unreadCountQuery.data?.unreadCount ? 'warning' : 'success'}>
+                      {unreadCountQuery.data?.unreadCount ? `${unreadCountQuery.data.unreadCount} unread` : 'All read'}
+                    </Badge>
+                  )}
                   {canEditOrDeleteTicket && selectedTicket && (
                     <>
                       <Button variant="secondary" onClick={handleOpenEditModal}>
@@ -431,6 +681,15 @@ export function TicketsPage({ user }: TicketsPageProps) {
                     <Badge variant={aiModeVariantMap[currentAiMode] as any}>
                       {aiModeLabelMap[currentAiMode]}
                     </Badge>
+                  )}
+                  {canReopenTicket && selectedTicket && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleReopenTicket(selectedTicket.id)}
+                      disabled={reopenTicketMutation.isPending}
+                    >
+                      {reopenTicketMutation.isPending ? 'Reopening...' : 'Reopen Ticket'}
+                    </Button>
                   )}
                   {canUpdateStatus && selectedTicket && (
                     <select
@@ -456,10 +715,53 @@ export function TicketsPage({ user }: TicketsPageProps) {
               </div>
 
               <div className="chat-messages">
+                {(assignmentHistoryQuery.data?.history || []).length > 0 && (
+                  <div className="thread-insight-card">
+                    <div className="thread-insight-title">Assignment history</div>
+                    {(assignmentHistoryQuery.data?.history || []).slice(0, 3).map((entry) => (
+                      <div key={entry.id} className="thread-insight-row">
+                        {entry.action} {entry.agentEmail ? `- ${entry.agentEmail}` : ''} - {new Date(entry.createdAt).toLocaleString()}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(activityQuery.data?.activity || []).length > 0 && (
+                  <div className="thread-insight-card">
+                    <div className="thread-insight-title">Recent activity</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {(activityQuery.data?.activity || []).slice(0, 6).map((entry) => (
+                        <div key={entry.id} className="thread-insight-row">
+                          <span>
+                            <strong>{entry.actor}</strong>: {entry.description}
+                          </span>
+                          <span>{new Date(entry.createdAt).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {(selectedTicket?.messages || []).map((msg) => (
                   <div key={msg.id} className={`chat-bubble chat-bubble--${msg.role.toLowerCase()}`}>
                     <div className="chat-bubble-role">{msg.role}</div>
                     <div>{msg.content}</div>
+                    {(attachmentsByMessage[msg.id] || []).length > 0 && (
+                      <div className="message-attachments">
+                        {attachmentsByMessage[msg.id]?.map((attachment) => (
+                          <div key={attachment.id} className="attachment-chip">
+                            <div className="attachment-chip__meta">
+                              <span className="attachment-chip__name">{attachment.originalName}</span>
+                              <span>{Math.max(1, Math.round(attachment.size / 1024))} KB</span>
+                            </div>
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleDownloadAttachment(attachment.id, attachment.originalName)}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="chat-bubble-time">{new Date(msg.createdAt).toLocaleString()}</div>
                   </div>
                 ))}
@@ -475,17 +777,31 @@ export function TicketsPage({ user }: TicketsPageProps) {
                     placeholder="Type your message..."
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
-                    disabled={addMessageMutation.isPending}
+                    disabled={addMessageMutation.isPending || uploadAttachmentsMutation.isPending}
                   />
+                  <input
+                    type="file"
+                    multiple
+                    className="ticket-file-input"
+                    onChange={(e) => setPendingFiles(Array.from(e.target.files || []))}
+                    disabled={addMessageMutation.isPending || uploadAttachmentsMutation.isPending}
+                  />
+                  {pendingFiles.length > 0 && (
+                    <div className="pending-file-list">
+                      {pendingFiles.map((file) => (
+                        <span key={`${file.name}-${file.size}`} className="pending-file-chip">{file.name}</span>
+                      ))}
+                    </div>
+                  )}
                   <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '-0.25rem' }}>
                     AI auto-reply is triggered for customer messages. Agent/Admin messages are human replies only.
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <Button
                       onClick={handleSendMessage}
-                      disabled={addMessageMutation.isPending || !messageText.trim()}
+                      disabled={(addMessageMutation.isPending || uploadAttachmentsMutation.isPending) || (!messageText.trim() && pendingFiles.length === 0)}
                     >
-                      {addMessageMutation.isPending ? 'Sending...' : 'Send Message'}
+                      {(addMessageMutation.isPending || uploadAttachmentsMutation.isPending) ? 'Sending...' : 'Send Message'}
                     </Button>
                   </div>
                 </div>

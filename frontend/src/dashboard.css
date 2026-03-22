@@ -19,6 +19,44 @@
   color: #6b7280;
 }
 
+.dashboard-highlight {
+  margin-bottom: 1.5rem;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 55%, #f8fafc 100%);
+}
+
+.dashboard-highlight--agent {
+  border-color: #ede9fe;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 55%, #f8fafc 100%);
+}
+
+.dashboard-highlight--customer {
+  border-color: #dcfce7;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 55%, #f8fafc 100%);
+}
+
+.dashboard-highlight__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.55rem;
+}
+
+.dashboard-highlight__title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.4rem;
+}
+
+.dashboard-highlight__detail {
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
 /* Metrics Grid */
 .metrics-grid {
   display: grid;
@@ -29,6 +67,8 @@
 
 .metric-card {
   cursor: auto;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
 }
 
 .metric-header {
@@ -102,6 +142,7 @@
 
 .dashboard-section {
   cursor: auto;
+  border: 1px solid #e5e7eb;
 }
 
 .section-title {
@@ -153,6 +194,13 @@
 .ticket-meta {
   font-size: 0.875rem;
   color: #9ca3af;
+}
+
+.ticket-preview {
+  margin-top: 0.45rem;
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.45;
 }
 
 .ticket-status {
@@ -303,5 +351,9 @@
 
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dashboard-highlight__title {
+    font-size: 1rem;
   }
 }

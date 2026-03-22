@@ -31,6 +31,9 @@ model User {
   role      Role
   agent     Agent?
   customerProfile Customer?
+  messageReadReceipts MessageReadReceipt[]
+  uploadedFiles FileAttachment[] @relation("UploadedFiles")
+  performedAssignments TicketAssignment[] @relation("TicketAssignmentActor")
   memberships OrganizationMember[]
   acceptedInvites Invite[] @relation("InviteAcceptedByUser")
   org       Organization @relation(fields: [orgId], references: [id])
@@ -76,6 +79,7 @@ model Ticket {
   createdByUser   User?            @relation(fields: [createdByUserId], references: [id])
   analytics       TicketAnalytics?
   notifications   CustomerNotification[]
+  assignmentHistory TicketAssignment[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   aiSuggestions   AiSuggestion[]
@@ -141,12 +145,45 @@ model TicketMessage {
   createdAt DateTime    @default(now())
 
   ticket Ticket @relation(fields: [ticketId], references: [id])
+  readReceipts MessageReadReceipt[]
+  attachments FileAttachment[]
 }
 
 enum MessageRole {
   CUSTOMER
   AGENT
   AI
+}
+
+model MessageReadReceipt {
+  messageId     String
+  userId        String
+  readAt        DateTime  @default(now())
+  readDuration  Int?
+
+  message TicketMessage @relation(fields: [messageId], references: [id])
+  user    User          @relation(fields: [userId], references: [id])
+
+  @@id([messageId, userId])
+  @@index([userId, readAt])
+}
+
+model FileAttachment {
+  id           String        @id @default(uuid())
+  messageId     String
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int
+  url           String
+  uploadedBy    String
+  createdAt     DateTime     @default(now())
+
+  message       TicketMessage @relation(fields: [messageId], references: [id])
+  uploader      User          @relation("UploadedFiles", fields: [uploadedBy], references: [id])
+
+  @@index([messageId, createdAt])
+  @@index([uploadedBy])
 }
 
 model Agent {
@@ -157,6 +194,7 @@ model Agent {
   activeTickets   Int       @default(0)
   lastAssignedAt  DateTime?
   assignedTickets Ticket[]
+  assignmentHistory TicketAssignment[]
   user            User      @relation(fields: [userId], references: [id])
 }
 
@@ -282,4 +320,28 @@ enum NotificationType {
   TICKET_RESOLVED
   TICKET_ESCALATED
   MESSAGE_RECEIVED
+}
+
+model TicketAssignment {
+  id               String           @id @default(uuid())
+  ticketId         String
+  agentId          String?
+  assignedByUserId String?
+  action           AssignmentAction
+  reason           String?
+  createdAt        DateTime         @default(now())
+
+  ticket           Ticket           @relation(fields: [ticketId], references: [id])
+  agent            Agent?           @relation(fields: [agentId], references: [id])
+  assignedByUser   User?            @relation("TicketAssignmentActor", fields: [assignedByUserId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([agentId, createdAt])
+}
+
+enum AssignmentAction {
+  ASSIGNED
+  REASSIGNED
+  UNASSIGNED
+  AUTO_ASSIGNED
 }

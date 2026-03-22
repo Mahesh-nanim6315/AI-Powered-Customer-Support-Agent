@@ -85,21 +85,6 @@ function collectStringValues(input: unknown): string[] {
 }
 
 /**
- * Sanitize input by removing dangerous characters
- */
-function sanitizeInputString(input: string): string {
-  if (typeof input !== 'string') return input;
-  
-  return input
-    .replace(/['"\\;]/g, '') // Remove dangerous quotes and semicolons
-    .replace(/--/g, '') // Remove SQL comments
-    .replace(/\/\*/g, '') // Remove SQL block comments
-    .replace(/\*\//g, '') // Remove SQL block comments
-    .replace(/[<>]/g, '') // Remove HTML tags
-    .trim();
-}
-
-/**
  * Security validation middleware
  */
 export const securityValidation = (req: Request, res: Response, next: NextFunction) => {
@@ -193,44 +178,27 @@ export const securityValidation = (req: Request, res: Response, next: NextFuncti
 };
 
 /**
- * Input sanitization middleware
+ * Lightweight normalization middleware.
+ *
+ * Important: do not mutate request bodies for support/chat content.
+ * Users often paste logs, HTML, SQL, stack traces, and code snippets.
+ * We only normalize surrounding whitespace on query/path strings.
  */
 export const sanitizeInputs = (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Sanitize query parameters
+    // Normalize query parameters
     for (const [key, value] of Object.entries(req.query)) {
       if (typeof value === 'string') {
-        req.query[key] = sanitizeInputString(value);
+        req.query[key] = value.trim();
       }
     }
 
-    // Sanitize path parameters
+    // Normalize path parameters
     for (const [key, value] of Object.entries(req.params)) {
       const paramValue = firstString(value);
       if (paramValue !== undefined) {
-        req.params[key] = sanitizeInputString(paramValue);
+        req.params[key] = paramValue.trim();
       }
-    }
-
-    // Sanitize string values in request body
-    if (req.body && typeof req.body === 'object') {
-      const sanitizeObject = (obj: any): any => {
-        if (typeof obj !== 'object' || obj === null) return obj;
-        
-        const sanitized: any = Array.isArray(obj) ? [] : {};
-        for (const [key, value] of Object.entries(obj)) {
-          if (typeof value === 'string') {
-            sanitized[key] = sanitizeInputString(value);
-          } else if (typeof value === 'object' && value !== null) {
-            sanitized[key] = sanitizeObject(value);
-          } else {
-            sanitized[key] = value;
-          }
-        }
-        return sanitized;
-      };
-
-      req.body = sanitizeObject(req.body);
     }
 
     next();

@@ -38,7 +38,14 @@ export class MessageReadService {
               { assignedAgent: { userId } }
             ]
           }
-        }
+        },
+        include: {
+          ticket: {
+            select: {
+              orgId: true,
+            },
+          },
+        },
       });
 
       if (!message) {
@@ -71,7 +78,7 @@ export class MessageReadService {
       await AuditService.logUserActivity({
         userId,
         orgId: message.ticket?.orgId || '',
-        action: 'MESSAGE_READ',
+        action: 'MESSAGE_SENT' as any,
         resourceType: 'TICKET_MESSAGE',
         resourceId: messageId,
         details: {
@@ -92,43 +99,84 @@ export class MessageReadService {
    */
   static async markMultipleAsRead(messageIds: string[], userId: string): Promise<void> {
     try {
+      const accessibleMessages = await prisma.ticketMessage.findMany({
+        where: {
+          id: { in: messageIds },
+          ticket: {
+            OR: [
+              { createdByUserId: userId },
+              { customer: { userId } },
+              { assignedAgent: { userId } }
+            ]
+          }
+        },
+        select: {
+          id: true,
+          ticket: {
+            select: {
+              orgId: true,
+            },
+          },
+        },
+      });
+
+      const accessibleIds = accessibleMessages.map((message) => message.id);
+      if (accessibleIds.length === 0) {
+        return;
+      }
+
       // Filter out already read messages
       const existingReceipts = await prisma.messageReadReceipt.findMany({
         where: {
-          messageId: { in: messageIds },
+          messageId: { in: accessibleIds },
           userId
         }
       });
 
       const alreadyReadIds = new Set(existingReceipts.map(r => r.messageId));
-      const unreadIds = messageIds.filter(id => !alreadyReadIds.has(id));
+      const unreadIds = accessibleIds.filter(id => !alreadyReadIds.has(id));
 
       if (unreadIds.length === 0) {
         return; // All messages already read
       }
 
-      // Create read receipts for unread messages
-      const receipts = unreadIds.map(messageId => ({
-        messageId,
-        userId,
-        readAt: new Date()
-      }));
+      // Create read receipts in a transaction using the composite primary key.
+      // This is more robust than createMany here because this path can be hit
+      // repeatedly by UI refetches while the same thread is open.
+      await prisma.$transaction(
+        unreadIds.map((messageId) =>
+          prisma.messageReadReceipt.upsert({
+            where: {
+              messageId_userId: {
+                messageId,
+                userId,
+              },
+            },
+            update: {},
+            create: {
+              messageId,
+              userId,
+              readAt: new Date(),
+            },
+          })
+        )
+      );
 
-      await prisma.messageReadReceipt.createMany({
-        data: receipts
-      });
+      const orgId = accessibleMessages[0]?.ticket?.orgId || '';
 
       // Log bulk read activity
-      await AuditService.logUserActivity({
-        userId,
-        orgId: '', // Will be filled by caller
-        action: 'MESSAGES_READ',
-        resourceType: 'TICKET_MESSAGE',
-        details: {
-          messagesCount: unreadIds.length,
-          messageIds: unreadIds
-        }
-      });
+      if (orgId) {
+        await AuditService.logUserActivity({
+          userId,
+          orgId,
+          action: 'MESSAGE_SENT' as any,
+          resourceType: 'TICKET_MESSAGE',
+          details: {
+            messagesCount: unreadIds.length,
+            messageIds: unreadIds
+          }
+        });
+      }
 
     } catch (error) {
       console.error('Failed to mark multiple messages as read:', error);
@@ -213,7 +261,7 @@ export class MessageReadService {
         )
       ` as { count: number };
 
-      const totalMessages = (totalMessagesResult as any[])[0]?.count || 0;
+      const totalMessages = Number(((totalMessagesResult as unknown as Array<{ count: number }>)[0]?.count) || 0);
 
       // Get read messages count
       const readMessagesResult = await prisma.$queryRaw`
@@ -230,7 +278,7 @@ export class MessageReadService {
         )
       ` as { count: number };
 
-      const readMessages = (readMessagesResult as any[])[0]?.count || 0;
+      const readMessages = Number(((readMessagesResult as unknown as Array<{ count: number }>)[0]?.count) || 0);
 
       // Get average read time
       const avgReadTimeResult = await prisma.$queryRaw`
@@ -243,7 +291,7 @@ export class MessageReadService {
         AND mrr."readDuration" IS NOT NULL
       ` as { avg_time: number };
 
-      const averageReadTime = (avgReadTimeResult as any[])[0]?.avg_time || 0;
+      const averageReadTime = Number(((avgReadTimeResult as unknown as Array<{ avg_time: number }>)[0]?.avg_time) || 0);
 
       return {
         totalMessages,
@@ -275,7 +323,7 @@ export class MessageReadService {
         AND mrr."messageId" IS NULL
       ` as { count: number };
 
-      return (result as any[])[0]?.count || 0;
+      return Number(((result as unknown as Array<{ count: number }>)[0]?.count) || 0);
     } catch (error) {
       console.error('Failed to get unread count:', error);
       return 0;

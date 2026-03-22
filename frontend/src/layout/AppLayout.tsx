@@ -14,9 +14,11 @@ import {
   BarChart3,
   Settings,
   FileText,
+  Bell,
 } from 'lucide-react';
 import { useRealtime } from '../context/RealtimeContext';
 import { useOrg } from '../context/OrgContext';
+import { useUnreadNotificationCount } from '../hooks/useNotifications';
 import '../layout.css';
 import type { UserRole } from '../types';
 
@@ -30,9 +32,11 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const realtime = useRealtime();
   const { organizations, activeOrgId, switchOrg, isLoading } = useOrg();
+  const unreadNotificationsQuery = useUnreadNotificationCount(userRole === 'CUSTOMER');
   const displayName = (userEmail.split('@')[0] || 'User')
     .replace(/[._-]+/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
+  const unreadCount = unreadNotificationsQuery.data?.unreadCount ?? 0;
 
   const navItems = [
     {
@@ -45,6 +49,12 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
       label: 'Tickets',
       path: '/tickets',
       allowedRoles: ['ADMIN', 'AGENT', 'CUSTOMER'],
+    },
+    {
+      icon: Bell,
+      label: 'Notifications',
+      path: '/notifications',
+      allowedRoles: ['CUSTOMER'],
     },
     {
       icon: Users,
@@ -126,6 +136,9 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
             >
               <Icon size={20} />
               <span>{label}</span>
+              {path === '/notifications' && unreadCount > 0 && (
+                <span className="app-nav-badge">{unreadCount}</span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -154,6 +167,19 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
             <div className="app-header-user-name">{displayName}</div>
             <div className="app-header-user-role">{userRole}</div>
           </div>
+          {userRole === 'CUSTOMER' && (
+            <NavLink
+              to="/notifications"
+              className={({ isActive }) =>
+                `app-header-notifications ${isActive ? 'app-header-notifications--active' : ''}`
+              }
+              title="Notifications"
+            >
+              <Bell size={18} />
+              <span>Notifications</span>
+              {unreadCount > 0 && <span className="app-header-notification-badge">{unreadCount}</span>}
+            </NavLink>
+          )}
           {organizations.length > 1 && (
             <select
               className="app-header-org-switcher"
@@ -189,4 +215,3 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
     
   );
 }
-

@@ -45,13 +45,22 @@ io.on("connection", (socket: any) => {
   const orgRoom = `org-${socket.orgId}`;
   socket.join(orgRoom);
 
-  socket.on("join-ticket", (ticketId: string) => {
+  const joinTicketRoom = (ticketId: string) => {
+    if (!ticketId) return;
     socket.join(`ticket-${ticketId}`);
-  });
+  };
 
-  socket.on("joinTicket", (ticketId: string) => {
-    socket.join(`ticket-${ticketId}`);
-  });
+  const leaveTicketRoom = (ticketId: string) => {
+    if (!ticketId) return;
+    socket.leave(`ticket-${ticketId}`);
+  };
+
+  socket.on("join-ticket", joinTicketRoom);
+  socket.on("leave-ticket", leaveTicketRoom);
+
+  // Backward compatibility for older client events
+  socket.on("joinTicket", joinTicketRoom);
+  socket.on("leaveTicket", leaveTicketRoom);
 
   socket.on("typing_indicator", (payload: { ticketId?: string; isTyping?: boolean }) => {
     if (!payload?.ticketId) return;

@@ -92,6 +92,16 @@ export function CustomerDashboardPage() {
         </div>
       </div>
 
+      <Card className="dashboard-highlight dashboard-highlight--customer">
+        <div className="dashboard-highlight__label">Support Snapshot</div>
+        <div className="dashboard-highlight__title">
+          {openTickets.length} active tickets, {aiReviewingTickets.length} under AI review, {resolvedTickets.length} completed
+        </div>
+        <div className="dashboard-highlight__detail">
+          Open a ticket to review the latest reply, attachments, and current resolution progress.
+        </div>
+      </Card>
+
       {showLiveNotification && (
         <Alert type="info" title="Live Update" onClose={() => setShowLiveNotification(false)}>
           Your ticket summary has been refreshed.
@@ -139,6 +149,9 @@ export function CustomerDashboardPage() {
                     <div className="ticket-subject">{ticket.subject}</div>
                     <div className="ticket-meta">
                       {new Date(ticket.updatedAt).toLocaleDateString()} - {ticket.priority} priority
+                    </div>
+                    <div className="ticket-preview">
+                      {ticket.messages?.[ticket.messages.length - 1]?.content?.slice(0, 84) || "No recent conversation yet"}
                     </div>
                   </div>
                   <div className={`ticket-status status--${ticket.status.toLowerCase()}`}>{ticket.status}</div>

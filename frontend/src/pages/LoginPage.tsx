@@ -22,9 +22,7 @@ export function LoginPage({ onAuthenticated, onGoToSignup }: LoginPageProps) {
 
   async function onSubmit(data: LoginRequest) {
     try {
-      console.log('🔐 Logging in with email:', data.email);
       const response = await loginMutation.mutateAsync(data);
-      console.log('✅ Login response:', response);
       const authUser: AuthUser = {
         id: response.user.id,
         email: response.user.email,
@@ -32,12 +30,8 @@ export function LoginPage({ onAuthenticated, onGoToSignup }: LoginPageProps) {
         role: response.user.role,
         token: response.token,
       };
-      console.log('👤 Constructed AuthUser:', authUser);
       onAuthenticated(authUser);
-      console.log('✅ onAuthenticated called');
-    } catch (error) {
-      console.error('❌ Login failed:', error);
-    }
+    } catch {}
   }
 
   const isLoading = loginMutation.isPending;
@@ -140,4 +134,3 @@ export function LoginPage({ onAuthenticated, onGoToSignup }: LoginPageProps) {
     </div>
   );
 }
-

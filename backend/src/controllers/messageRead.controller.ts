@@ -1,7 +1,19 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { MessageReadService } from '../services/messageRead.service';
-import { validate } from '../middlewares/validation.middleware';
 import { uuidSchema } from '../validators/common.validators';
+
+const messageIdParamsSchema = z.object({
+  messageId: uuidSchema,
+});
+
+const ticketIdParamsSchema = z.object({
+  ticketId: uuidSchema,
+});
+
+const markMultipleSchema = z.object({
+  messageIds: z.array(uuidSchema).min(1),
+});
 
 /**
  * Message Read Receipt Controller
@@ -13,11 +25,7 @@ export class MessageReadController {
    */
   static async markAsRead(req: Request, res: Response) {
     try {
-      const { messageId } = await validate({
-        params: {
-          messageId: uuidSchema
-        }
-      });
+      const { messageId } = messageIdParamsSchema.parse(req.params);
       
       const { readDuration } = req.body as { readDuration?: number };
       const userId = (req as any).user?.userId;
@@ -50,14 +58,7 @@ export class MessageReadController {
    */
   static async markMultipleAsRead(req: Request, res: Response) {
     try {
-      const { messageIds } = await validate({
-        body: {
-          messageIds: {
-            type: 'array',
-            items: uuidSchema
-          }
-        }
-      });
+      const { messageIds } = markMultipleSchema.parse(req.body);
       
       const userId = (req as any).user?.userId;
       const orgId = (req as any).user?.orgId;
@@ -83,11 +84,7 @@ export class MessageReadController {
    */
   static async getReadStatus(req: Request, res: Response) {
     try {
-      const { messageId } = await validate({
-        params: {
-          messageId: uuidSchema
-        }
-      });
+      const { messageId } = messageIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
 
@@ -113,11 +110,7 @@ export class MessageReadController {
    */
   static async getTicketReadReceipts(req: Request, res: Response) {
     try {
-      const { ticketId } = await validate({
-        params: {
-          ticketId: uuidSchema
-        }
-      });
+      const { ticketId } = ticketIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
 
@@ -169,11 +162,7 @@ export class MessageReadController {
    */
   static async getTicketUnreadCount(req: Request, res: Response) {
     try {
-      const { ticketId } = await validate({
-        params: {
-          ticketId: uuidSchema
-        }
-      });
+      const { ticketId } = ticketIdParamsSchema.parse(req.params);
       
       const userId = (req as any).user?.userId;
 

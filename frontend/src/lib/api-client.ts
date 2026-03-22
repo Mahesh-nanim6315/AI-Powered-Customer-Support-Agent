@@ -17,26 +17,19 @@ class ApiClient {
         this.instance.interceptors.request.use((config) => {
             if (this.token) {
                 config.headers.Authorization = `Bearer ${this.token}`;
-                console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.url}`);
-            } else {
-                console.warn(`⚠️ API Request without token: ${config.method?.toUpperCase()} ${config.url}`);
             }
             return config;
         });
 
         this.instance.interceptors.response.use(
             (response) => {
-                console.log(`✅ API Response ${response.status}: ${response.config.url}`);
                 return response;
             },
             (error: AxiosError<{ message?: string }>) => {
-                console.error(`❌ API Error ${error.response?.status}: ${error.config?.url} - ${error.message}`);
                 if (error.response?.status === 401) {
-                    console.error('🔴 401 Unauthorized error, clearing auth');
                     this.clearToken();
                     // Only redirect if we're not on the login page already
                     if (window.location.pathname !== '/login') {
-                        console.log('🚀 Redirecting to login...');
                         window.location.href = '/login';
                     }
                 }
@@ -48,11 +41,9 @@ class ApiClient {
 
     setToken(token: string) {
         this.token = token;
-        console.log('🔐 Token set in apiClient:', token.substring(0, 20) + '...');
     }
 
     clearToken() {
-        console.log('🗑️ Token cleared from apiClient');
         this.token = null;
     }
 

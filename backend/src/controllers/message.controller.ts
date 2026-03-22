@@ -71,9 +71,23 @@ export const sendMessage = async (req: Request, res: Response) => {
     });
 
     if (!lockAcquired) {
-      return res.status(429).json({ 
-        error: "Message processing in progress", 
-        message: "Another user is currently processing this message. Please wait." 
+      const conflictingLockType = messageRole === "CUSTOMER" ? "AI_PROCESSING" : "AGENT_REPLY";
+      const existingLock = await messageLockService.getLockInfo(ticketId, conflictingLockType);
+
+      return res.status(409).json({
+        error: "Message processing in progress",
+        message:
+          messageRole === "CUSTOMER"
+            ? "Your previous message is still being processed by AI. Please wait a moment before sending another one."
+            : "Another reply is already being processed for this ticket. Please wait a moment and try again.",
+        lock: existingLock
+          ? {
+              userId: existingLock.userId,
+              lockType: existingLock.lockType,
+              acquiredAt: existingLock.acquiredAt,
+              expiresAt: existingLock.expiresAt,
+            }
+          : null,
       });
     }
 

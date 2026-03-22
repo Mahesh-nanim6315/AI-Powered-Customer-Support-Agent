@@ -5,6 +5,13 @@ import { v4 as uuidv4 } from 'uuid';
 import prisma from '../config/database';
 import { AuditService } from './audit.service';
 
+interface UploadedFile {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
 export interface FileAttachment {
   id: string;
   messageId: string;
@@ -67,7 +74,7 @@ export class FileAttachmentService {
   /**
    * Validate file upload
    */
-  static validateFile(file: Express.Multer.File): FileValidationResult {
+  static validateFile(file: UploadedFile): FileValidationResult {
     // Check file size
     if (file.size > this.MAX_FILE_SIZE) {
       return {
@@ -93,7 +100,7 @@ export class FileAttachmentService {
    * Upload file and create attachment record
    */
   static async uploadFile(
-    file: Express.Multer.File,
+    file: UploadedFile,
     messageId: string,
     uploadedBy: string,
     orgId: string
