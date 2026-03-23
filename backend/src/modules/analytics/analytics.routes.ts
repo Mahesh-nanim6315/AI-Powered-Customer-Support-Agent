@@ -15,5 +15,6 @@ router.get("/dashboard", allowRoles("ADMIN", "AGENT"), AnalyticsController.getDa
 router.get("/admin/overview", allowRoles("ADMIN"), AnalyticsController.getOverview);
 router.get("/admin/ticket-trends", allowRoles("ADMIN"), AnalyticsController.getTicketTrends);
 router.get("/admin/agent-performance", allowRoles("ADMIN"), AnalyticsController.getAgentPerformance);
+router.get("/admin/operational-insights", allowRoles("ADMIN"), AnalyticsController.getOperationalInsights);
 
 export default router;

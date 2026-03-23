@@ -57,6 +57,15 @@ class ApiClient {
         return response.data;
     }
 
+    async postForm<T>(path: string, data: FormData) {
+        const response = await this.instance.post<T>(path, data, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    }
+
     async patch<T>(path: string, data?: any) {
         const response = await this.instance.patch<T>(path, data);
         return response.data;

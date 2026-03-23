@@ -1,58 +1,279 @@
-import { Alert, Card } from "../components";
+import { useEffect, useState } from "react";
+import { Alert, Button, Card, Input, Select, Spinner, TextArea } from "../components";
 import { Brain, MessageSquare, Settings, Shield, Zap } from "lucide-react";
+import { aiSettingsService } from "../services/aiSettings.service";
+import type { AiSettings } from "../types";
 import "../page.css";
 
-const aiSettingsSections = [
-  {
-    icon: Brain,
-    title: "AI Model Configuration",
-    description: "Model selection, temperature, and confidence thresholds are not wired to a live backend endpoint yet.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Response Templates",
-    description: "Template and canned-reply management still needs a persisted API contract before this page can be interactive.",
-  },
-  {
-    icon: Zap,
-    title: "Automation Rules",
-    description: "Routing, prioritization, and escalation rules are still controlled in backend code, not from an admin settings API.",
-  },
-  {
-    icon: Shield,
-    title: "Safety and Moderation",
-    description: "Safety policies and moderation thresholds are not exposed through mounted admin routes in the current backend.",
-  },
-];
+const defaultSettings: AiSettings = {
+  orgId: "",
+  aiEnabled: true,
+  model: "gpt-4.1-mini",
+  temperature: 0.4,
+  confidenceThreshold: 0.75,
+  autoExecuteSuggestions: false,
+  kbFallbackEnabled: true,
+  safeFallbackEnabled: true,
+  escalationEnabled: true,
+  replyTone: "professional",
+  systemPrompt: "",
+};
+
+function ToggleField({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="toggle-field">
+      <div>
+        <div className="toggle-field__label">{label}</div>
+        <div className="toggle-field__hint">{hint}</div>
+      </div>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+      />
+    </label>
+  );
+}
 
 export function AiSettingsPage() {
+  const [settings, setSettings] = useState<AiSettings>(defaultSettings);
+  const [savedSnapshot, setSavedSnapshot] = useState<AiSettings>(defaultSettings);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const data = await aiSettingsService.get();
+        const normalized = {
+          ...data,
+          systemPrompt: data.systemPrompt || "",
+        };
+        setSettings(normalized);
+        setSavedSnapshot(normalized);
+      } catch (loadError) {
+        console.error("Failed to load AI settings:", loadError);
+        setError("Failed to load AI settings");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  const isDirty = JSON.stringify(settings) !== JSON.stringify(savedSnapshot);
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      setError(null);
+      setSuccess(null);
+      const saved = await aiSettingsService.update({
+        ...settings,
+        systemPrompt: settings.systemPrompt?.trim() || null,
+      });
+      const normalized = {
+        ...saved,
+        systemPrompt: saved.systemPrompt || "",
+      };
+      setSettings(normalized);
+      setSavedSnapshot(normalized);
+      setSuccess("AI settings saved successfully.");
+    } catch (saveError) {
+      console.error("Failed to save AI settings:", saveError);
+      setError("Failed to save AI settings");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleReset = () => {
+    setSettings(savedSnapshot);
+    setSuccess(null);
+    setError(null);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="page">
+        <Spinner fullScreen />
+      </div>
+    );
+  }
+
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <h1 className="page-title">AI Settings</h1>
-          <p className="page-subtitle">Configuration surface for AI controls that still needs real backend support</p>
+          <p className="page-subtitle">Manage persisted org-level controls for AI routing, confidence, and suggestion execution</p>
+        </div>
+        <div className="page-actions">
+          <Button variant="secondary" onClick={handleReset} disabled={!isDirty || isSaving}>
+            Reset
+          </Button>
+          <Button onClick={handleSave} disabled={!isDirty || isSaving}>
+            {isSaving ? "Saving..." : "Save Settings"}
+          </Button>
         </div>
       </div>
 
-      <Alert type="warning" title="Settings API Not Live">
-        This page is intentionally read-only for now. The current backend does not mount admin endpoints for saving AI settings.
-      </Alert>
+      {success && (
+        <Alert type="success" title="Saved" onClose={() => setSuccess(null)}>
+          {success}
+        </Alert>
+      )}
+
+      {error && (
+        <Alert type="error" title="Error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       <div className="settings-grid">
-        {aiSettingsSections.map(({ icon: Icon, title, description }) => (
-          <Card key={title} className="setting-card">
-            <div className="setting-header">
-              <div className="setting-icon">
-                <Icon size={24} />
-              </div>
-              <h2 className="setting-title">{title}</h2>
+        <Card className="setting-card">
+          <div className="setting-header">
+            <div className="setting-icon">
+              <Brain size={24} />
             </div>
-            <div className="setting-content">
-              <p className="setting-description">{description}</p>
+            <h2 className="setting-title">AI Model Configuration</h2>
+          </div>
+          <div className="setting-content setting-form">
+            <ToggleField
+              label="Enable AI responses"
+              hint="Master switch for AI-assisted handling in this organization."
+              checked={settings.aiEnabled}
+              onChange={(checked) => setSettings((prev) => ({ ...prev, aiEnabled: checked }))}
+              disabled={isSaving}
+            />
+            <Select
+              label="Model"
+              options={[
+                { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
+                { value: "gpt-4.1", label: "GPT-4.1" },
+                { value: "gpt-5-mini", label: "GPT-5 Mini" },
+              ]}
+              value={settings.model}
+              onChange={(e) => setSettings((prev) => ({ ...prev, model: e.target.value }))}
+              disabled={isSaving}
+            />
+            <Input
+              label="Temperature"
+              type="number"
+              min="0"
+              max="2"
+              step="0.1"
+              value={settings.temperature}
+              onChange={(e) => setSettings((prev) => ({ ...prev, temperature: Number(e.target.value) }))}
+              disabled={isSaving}
+            />
+            <Input
+              label="Confidence threshold"
+              type="number"
+              min="0"
+              max="1"
+              step="0.05"
+              value={settings.confidenceThreshold}
+              onChange={(e) => setSettings((prev) => ({ ...prev, confidenceThreshold: Number(e.target.value) }))}
+              disabled={isSaving}
+            />
+          </div>
+        </Card>
+
+        <Card className="setting-card">
+          <div className="setting-header">
+            <div className="setting-icon">
+              <MessageSquare size={24} />
             </div>
-          </Card>
-        ))}
+            <h2 className="setting-title">Response Controls</h2>
+          </div>
+          <div className="setting-content setting-form">
+            <Select
+              label="Reply tone"
+              options={[
+                { value: "professional", label: "Professional" },
+                { value: "friendly", label: "Friendly" },
+                { value: "concise", label: "Concise" },
+              ]}
+              value={settings.replyTone}
+              onChange={(e) => setSettings((prev) => ({ ...prev, replyTone: e.target.value }))}
+              disabled={isSaving}
+            />
+            <TextArea
+              label="System prompt"
+              placeholder="Optional org-specific guidance for the assistant..."
+              value={settings.systemPrompt || ""}
+              onChange={(e) => setSettings((prev) => ({ ...prev, systemPrompt: e.target.value }))}
+              disabled={isSaving}
+            />
+          </div>
+        </Card>
+
+        <Card className="setting-card">
+          <div className="setting-header">
+            <div className="setting-icon">
+              <Zap size={24} />
+            </div>
+            <h2 className="setting-title">Automation Rules</h2>
+          </div>
+          <div className="setting-content setting-form">
+            <ToggleField
+              label="Auto-execute approved suggestions"
+              hint="When enabled, approved AI suggestions execute immediately in supported flows."
+              checked={settings.autoExecuteSuggestions}
+              onChange={(checked) => setSettings((prev) => ({ ...prev, autoExecuteSuggestions: checked }))}
+              disabled={isSaving}
+            />
+            <ToggleField
+              label="Escalation enabled"
+              hint="Allow AI to escalate tickets to human handling when confidence is low."
+              checked={settings.escalationEnabled}
+              onChange={(checked) => setSettings((prev) => ({ ...prev, escalationEnabled: checked }))}
+              disabled={isSaving}
+            />
+          </div>
+        </Card>
+
+        <Card className="setting-card">
+          <div className="setting-header">
+            <div className="setting-icon">
+              <Shield size={24} />
+            </div>
+            <h2 className="setting-title">Fallback & Safety</h2>
+          </div>
+          <div className="setting-content setting-form">
+            <ToggleField
+              label="Knowledge-base fallback"
+              hint="Let the assistant fall back to indexed knowledge when direct answer generation is weak."
+              checked={settings.kbFallbackEnabled}
+              onChange={(checked) => setSettings((prev) => ({ ...prev, kbFallbackEnabled: checked }))}
+              disabled={isSaving}
+            />
+            <ToggleField
+              label="Safe fallback mode"
+              hint="Use a safer fallback response when the assistant cannot answer confidently."
+              checked={settings.safeFallbackEnabled}
+              onChange={(checked) => setSettings((prev) => ({ ...prev, safeFallbackEnabled: checked }))}
+              disabled={isSaving}
+            />
+          </div>
+        </Card>
       </div>
 
       <Card className="setting-card setting-card--full">
@@ -60,22 +281,14 @@ export function AiSettingsPage() {
           <div className="setting-icon">
             <Settings size={24} />
           </div>
-          <h2 className="setting-title">What Needs To Exist First</h2>
+          <h2 className="setting-title">Current Org AI Policy</h2>
         </div>
         <div className="setting-content">
-          <div className="setting-form">
-            <div className="form-group">
-              <label className="form-label">Required backend work</label>
-              <div className="form-input" style={{ minHeight: "auto" }}>
-                Persisted org-level AI configuration, validation rules, and authenticated admin endpoints.
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Recommended next API contract</label>
-              <div className="form-input" style={{ minHeight: "auto" }}>
-                <code>GET /admin/ai-settings</code> and <code>PATCH /admin/ai-settings</code> with org-scoped settings and audit logging.
-              </div>
-            </div>
+          <div className="insight-list">
+            <div className="insight-row"><span>AI enabled</span><strong>{settings.aiEnabled ? "Yes" : "No"}</strong></div>
+            <div className="insight-row"><span>Model</span><strong>{settings.model}</strong></div>
+            <div className="insight-row"><span>Confidence threshold</span><strong>{Math.round(settings.confidenceThreshold * 100)}%</strong></div>
+            <div className="insight-row"><span>Reply tone</span><strong>{settings.replyTone}</strong></div>
           </div>
         </div>
       </Card>

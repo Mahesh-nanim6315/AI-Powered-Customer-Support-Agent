@@ -191,6 +191,19 @@ export interface CreateKnowledgeRequest {
   content: string;
 }
 
+export interface UploadKnowledgeRequest {
+  file: File;
+  title?: string;
+  category?: string;
+}
+
+export interface UploadKnowledgeResponse {
+  article: KnowledgeBase;
+  indexed: boolean;
+  chunksStored: number;
+  uploadedFileName: string;
+}
+
 // ============ ANALYTICS ============
 export interface TicketAnalytics {
   id: string;
@@ -235,6 +248,65 @@ export interface AgentPerformance {
   avgResolutionTime: number;
   busyStatus: boolean;
   activeTickets: number;
+}
+
+export interface AnalyticsOperationalInsights {
+  queue: {
+    unassignedTickets: number;
+    openHighPriorityTickets: number;
+    oldestOpenTicketHours: number;
+    avgFirstReplyMinutes: number;
+  };
+  workload: {
+    totalAgents: number;
+    availableAgents: number;
+    averageActiveLoad: number;
+    busiestAgent?: {
+      email: string;
+      activeTickets: number;
+    } | null;
+  };
+  aiQuality: {
+    totalSuggestions: number;
+    pendingSuggestions: number;
+    executedSuggestions: number;
+    executionRate: number;
+    averageConfidence: number | null;
+  };
+}
+
+export interface AiSettings {
+  id?: string | null;
+  orgId: string;
+  aiEnabled: boolean;
+  model: string;
+  temperature: number;
+  confidenceThreshold: number;
+  autoExecuteSuggestions: boolean;
+  kbFallbackEnabled: boolean;
+  safeFallbackEnabled: boolean;
+  escalationEnabled: boolean;
+  replyTone: string;
+  systemPrompt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  level: "info" | "warn" | "error";
+  source: string;
+  message: string;
+  actor?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+  details?: Record<string, any> | null;
+}
+
+export interface LogsResponse {
+  entries: LogEntry[];
+  availableSources: string[];
 }
 
 // ============ NOTIFICATIONS ============

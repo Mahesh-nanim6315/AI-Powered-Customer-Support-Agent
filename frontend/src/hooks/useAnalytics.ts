@@ -1,6 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { analyticsService } from '../services/analytics.service';
-import type { DashboardAnalytics, AdminAnalyticsOverview, TicketTrends, AgentPerformance } from '../types';
+import type { DashboardAnalytics, AdminAnalyticsOverview, TicketTrends, AgentPerformance, AnalyticsOperationalInsights } from '../types';
 
 export function useDashboardAnalytics(enabled = true): UseQueryResult<DashboardAnalytics> {
     return useQuery({
@@ -34,6 +34,15 @@ export function useAgentPerformance(enabled = true): UseQueryResult<AgentPerform
         queryKey: ['analytics', 'admin', 'agent-performance'],
         queryFn: () => analyticsService.getAgentPerformance(),
         refetchInterval: 60000, // Refetch every minute
+        enabled,
+    });
+}
+
+export function useOperationalInsights(enabled = true): UseQueryResult<AnalyticsOperationalInsights> {
+    return useQuery({
+        queryKey: ['analytics', 'admin', 'operational-insights'],
+        queryFn: () => analyticsService.getOperationalInsights(),
+        refetchInterval: 60000,
         enabled,
     });
 }

@@ -8,6 +8,7 @@ import prisma from "../config/database";
 type UploadRequest = Request & {
   file?: {
     path: string;
+    originalname?: string;
   };
 };
 
@@ -44,29 +45,59 @@ export const uploadKnowledge = async (req: UploadRequest, res: Response) => {
     const fileBuffer = fs.readFileSync(tempFilePath);
 
     const parsed = await pdfParse(fileBuffer);
-    const fullText = parsed.text ?? "";
-    const chunks = chunkText(fullText, 500);
-
-    for (const chunk of chunks) {
-      const embedding = await generateEmbedding(chunk);
-
-      await index.upsert({
-        records: [
-          {
-            id: uuidv4(),
-            values: embedding,
-            metadata: {
-              text: chunk,
-              orgId,
-            },
-          },
-        ],
-      });
+    const fullText = (parsed.text ?? "").trim();
+    if (!fullText) {
+      return res.status(400).json({ error: "Uploaded document did not contain readable text" });
     }
 
-    return res.json({
-      success: true,
+    const title =
+      String(req.body?.title ?? "").trim() ||
+      req.file.originalname?.replace(/\.[^.]+$/, "") ||
+      "Uploaded document";
+    const category = String(req.body?.category ?? "").trim() || "Uploaded Document";
+
+    const article = await prisma.knowledgeBase.create({
+      data: {
+        orgId,
+        title,
+        category,
+        content: fullText,
+      },
+    });
+
+    const chunks = chunkText(fullText, 500).filter((chunk) => chunk.trim().length > 0);
+    let indexed = true;
+
+    try {
+      for (const chunk of chunks) {
+        const embedding = await generateEmbedding(chunk);
+
+        await index.upsert({
+          records: [
+            {
+              id: uuidv4(),
+              values: embedding,
+              metadata: {
+                text: chunk,
+                orgId,
+                title,
+                category,
+                knowledgeId: article.id,
+              },
+            },
+          ],
+        });
+      }
+    } catch (indexError) {
+      indexed = false;
+      console.error("Knowledge upload indexing failed:", indexError);
+    }
+
+    return res.status(201).json({
+      article,
+      indexed,
       chunksStored: chunks.length,
+      uploadedFileName: req.file.originalname || title,
     });
   } catch (error) {
     console.error(error);

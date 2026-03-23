@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Clock,
   MessageSquare,
+  Siren,
   Target,
   TrendingUp,
   UserCheck,
@@ -11,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Card, Spinner, Alert } from "../../components";
-import { useAdminAnalytics } from "../../hooks/useAnalytics";
+import { useAdminAnalytics, useOperationalInsights } from "../../hooks/useAnalytics";
 import { useTickets } from "../../hooks/useTickets";
 import { useAgents } from "../../hooks/useAgents";
 import { useCustomers } from "../../hooks/useCustomers";
@@ -28,6 +29,7 @@ interface MetricCard {
 
 export function AdminDashboardPage() {
   const analyticsQuery = useAdminAnalytics(true);
+  const insightsQuery = useOperationalInsights(true);
   const ticketsQuery = useTickets();
   const agentsQuery = useAgents(true);
   const customersQuery = useCustomers(true);
@@ -51,7 +53,7 @@ export function AdminDashboardPage() {
     return () => clearTimeout(timer);
   }, [realtime.ticketUpdated, realtime.ticketCreated, analyticsQuery, ticketsQuery, agentsQuery, customersQuery]);
 
-  if (analyticsQuery.isLoading || ticketsQuery.isLoading || agentsQuery.isLoading || customersQuery.isLoading) {
+  if (analyticsQuery.isLoading || insightsQuery.isLoading || ticketsQuery.isLoading || agentsQuery.isLoading || customersQuery.isLoading) {
     return (
       <div className="page">
         <Spinner fullScreen />
@@ -60,6 +62,7 @@ export function AdminDashboardPage() {
   }
 
   const analytics = analyticsQuery.data;
+  const insights = insightsQuery.data;
   const tickets = (ticketsQuery.data || []).slice().sort((a, b) => {
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
@@ -125,6 +128,31 @@ export function AdminDashboardPage() {
     },
   ];
 
+  const actionAlerts = [
+    {
+      title: "Unassigned queue",
+      detail: `${insights?.queue.unassignedTickets ?? 0} ticket${(insights?.queue.unassignedTickets ?? 0) === 1 ? "" : "s"} waiting for assignment`,
+      severity: (insights?.queue.unassignedTickets ?? 0) > 0 ? "warning" : "healthy",
+    },
+    {
+      title: "High-priority pressure",
+      detail: `${insights?.queue.openHighPriorityTickets ?? 0} high-priority ticket${(insights?.queue.openHighPriorityTickets ?? 0) === 1 ? "" : "s"} still open`,
+      severity: (insights?.queue.openHighPriorityTickets ?? 0) > 0 ? "warning" : "healthy",
+    },
+    {
+      title: "Oldest open ticket",
+      detail: `${insights?.queue.oldestOpenTicketHours ?? 0} hours since the oldest unresolved ticket was created`,
+      severity: (insights?.queue.oldestOpenTicketHours ?? 0) >= 24 ? "critical" : "healthy",
+    },
+    {
+      title: "Team availability",
+      detail: insights?.workload.busiestAgent
+        ? `${insights.workload.busiestAgent.email} currently carries ${insights.workload.busiestAgent.activeTickets} active tickets`
+        : "No active workload imbalance detected",
+      severity: (insights?.workload.busiestAgent?.activeTickets ?? 0) >= 5 ? "warning" : "healthy",
+    },
+  ];
+
   return (
     <div className="page">
       <div className="page-header">
@@ -155,6 +183,31 @@ export function AdminDashboardPage() {
         <Alert type="warning" title="Unable to load analytics">
           Some admin metrics are unavailable right now.
         </Alert>
+      )}
+
+      {insights && (
+        <Card className="dashboard-section">
+          <div className="section-header-inline">
+            <div>
+              <h2 className="section-title">Action Alerts</h2>
+              <p className="section-subtitle">The fastest way to spot where admin intervention is needed right now</p>
+            </div>
+            <div className="metric-icon metric-icon--red">
+              <Siren size={20} />
+            </div>
+          </div>
+          <div className="action-alerts-grid">
+            {actionAlerts.map((alertItem) => (
+              <div
+                key={alertItem.title}
+                className={`action-alert-card action-alert-card--${alertItem.severity}`}
+              >
+                <div className="action-alert-card__title">{alertItem.title}</div>
+                <div className="action-alert-card__detail">{alertItem.detail}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       <div className="metrics-grid metrics-grid--admin">

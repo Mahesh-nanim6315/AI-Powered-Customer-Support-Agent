@@ -1,5 +1,5 @@
 import { apiClient } from '../lib/api-client';
-import type { DashboardAnalytics, TicketAnalytics, AdminAnalyticsOverview, TicketTrends, AgentPerformance } from '../types';
+import type { DashboardAnalytics, TicketAnalytics, AdminAnalyticsOverview, TicketTrends, AgentPerformance, AnalyticsOperationalInsights } from '../types';
 
 export const analyticsService = {
     async getDashboardAnalytics(): Promise<DashboardAnalytics> {
@@ -28,5 +28,9 @@ export const analyticsService = {
 
     async getAgentPerformance(): Promise<AgentPerformance[]> {
         return apiClient.get<AgentPerformance[]>('/analytics/admin/agent-performance');
+    },
+
+    async getOperationalInsights(): Promise<AnalyticsOperationalInsights> {
+        return apiClient.get<AnalyticsOperationalInsights>('/analytics/admin/operational-insights');
     },
 };

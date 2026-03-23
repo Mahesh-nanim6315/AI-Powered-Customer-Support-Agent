@@ -21,6 +21,7 @@ model Organization {
   createdAt        DateTime        @default(now())
   aiSuggestions    AiSuggestion[]
   notifications    CustomerNotification[]
+  aiSettings       AiSettings?
 }
 
 model User {
@@ -289,6 +290,25 @@ enum SuggestionStatus {
   APPROVED
   REJECTED
   EXECUTED
+}
+
+model AiSettings {
+  id                     String       @id @default(uuid())
+  orgId                  String       @unique
+  aiEnabled              Boolean      @default(true)
+  model                  String       @default("gpt-4.1-mini")
+  temperature            Float        @default(0.4)
+  confidenceThreshold    Float        @default(0.75)
+  autoExecuteSuggestions Boolean      @default(false)
+  kbFallbackEnabled      Boolean      @default(true)
+  safeFallbackEnabled    Boolean      @default(true)
+  escalationEnabled      Boolean      @default(true)
+  replyTone              String       @default("professional")
+  systemPrompt           String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
 }
 
 model CustomerNotification {

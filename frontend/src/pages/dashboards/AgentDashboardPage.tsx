@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
-import { AlertTriangle, Briefcase, Clock3, Inbox } from "lucide-react";
-import { Card, Spinner, Alert } from "../../components";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, ArrowRight, Briefcase, Clock3, Inbox, Sparkles } from "lucide-react";
+import { Card, Spinner, Alert, Button } from "../../components";
 import { useTickets, useUnassignedTickets } from "../../hooks/useTickets";
 import { useAgents } from "../../hooks/useAgents";
 import { useRealtime } from "../../context/RealtimeContext";
@@ -67,6 +68,7 @@ function getAgentQueueState(ticket: Ticket) {
 }
 
 export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
+  const navigate = useNavigate();
   const ticketsQuery = useTickets();
   const unassignedQuery = useUnassignedTickets(true);
   const agentsQuery = useAgents(true);
@@ -148,6 +150,18 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
     },
   ];
 
+  const replyNowTickets = useMemo(
+    () => myTickets.filter((ticket) => getAgentQueueState(ticket).label === "Customer replied").slice(0, 4),
+    [myTickets]
+  );
+  const escalationWatchTickets = useMemo(
+    () => [...escalatedTickets, ...highPriorityTickets.filter((ticket) => ticket.status !== "ESCALATED")]
+      .filter((ticket, index, array) => array.findIndex((candidate) => candidate.id === ticket.id) === index)
+      .slice(0, 4),
+    [escalatedTickets, highPriorityTickets]
+  );
+  const nextBestTicket = replyNowTickets[0] || escalationWatchTickets[0] || myTickets[0] || unassignedTickets[0] || null;
+
   return (
     <div className="page">
       <div className="page-header">
@@ -173,6 +187,31 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
           Agent dashboard refreshed from live ticket activity.
         </Alert>
       )}
+
+      <div className="dashboard-action-strip">
+        <div className="dashboard-action-strip__main">
+          <div className="dashboard-action-strip__label">Next best action</div>
+          <div className="dashboard-action-strip__title">
+            {nextBestTicket ? nextBestTicket.subject : "Queue is clear right now"}
+          </div>
+          <div className="dashboard-action-strip__detail">
+            {nextBestTicket
+              ? `Customer: ${nextBestTicket.customer?.name || nextBestTicket.customer?.email || "Unknown"} • ${getAgentQueueState(nextBestTicket).label}`
+              : "No urgent replies or queue pickups are waiting at the moment."}
+          </div>
+        </div>
+        <div className="dashboard-action-strip__actions">
+          <Button onClick={() => navigate(nextBestTicket ? `/tickets?ticketId=${nextBestTicket.id}` : "/tickets")}>
+            Open next ticket
+          </Button>
+          <Button variant="secondary" onClick={() => navigate("/tickets")}>
+            Open queue
+          </Button>
+          <Button variant="secondary" onClick={() => navigate("/ai-suggestions")}>
+            Review AI suggestions
+          </Button>
+        </div>
+      </div>
 
       {(ticketsQuery.isError || unassignedQuery.isError || agentsQuery.isError) && (
         <Alert type="warning" title="Unable to load some dashboard data">
@@ -201,6 +240,44 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
       </div>
 
       <div className="dashboard-grid">
+        <Card className="dashboard-section">
+          <div className="section-header-inline">
+            <div>
+              <h2 className="section-title">Reply Now</h2>
+              <p className="section-subtitle">Tickets where the customer spoke last.</p>
+            </div>
+            <Button variant="ghost" onClick={() => navigate("/tickets")}>
+              Open queue
+            </Button>
+          </div>
+          {replyNowTickets.length === 0 ? (
+            <div className="empty-state">
+              <p>No customer replies waiting right now</p>
+            </div>
+          ) : (
+            <div className="priority-list">
+              {replyNowTickets.map((ticket) => (
+                <button
+                  key={ticket.id}
+                  className="priority-list-item priority-list-item--warning"
+                  onClick={() => navigate(`/tickets?ticketId=${ticket.id}`)}
+                >
+                  <div className="priority-list-item__content">
+                    <div className="priority-list-item__title">{ticket.subject}</div>
+                    <div className="priority-list-item__meta">
+                      {ticket.customer?.name || ticket.customer?.email || "Unknown customer"} • {ticket.priority} priority
+                    </div>
+                    <div className="priority-list-item__preview">
+                      {getLatestMessage(ticket)?.content?.slice(0, 88) || "No messages yet"}
+                    </div>
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+
         <Card className="dashboard-section">
           <h2 className="section-title">My Queue</h2>
           {myTickets.length === 0 ? (
@@ -233,6 +310,39 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
         </Card>
 
         <Card className="dashboard-section">
+          <div className="section-header-inline">
+            <div>
+              <h2 className="section-title">Escalation Watch</h2>
+              <p className="section-subtitle">High-priority and escalated work that should stay visible.</p>
+            </div>
+          </div>
+          {escalationWatchTickets.length === 0 ? (
+            <div className="empty-state">
+              <p>No escalations or high-priority tickets at the moment</p>
+            </div>
+          ) : (
+            <div className="ticket-list">
+              {escalationWatchTickets.map((ticket) => (
+                <div key={ticket.id} className="ticket-item ticket-item--urgent">
+                  <div className="ticket-info">
+                    <div className="ticket-subject">{ticket.subject}</div>
+                    <div className="ticket-meta">
+                      {ticket.customer?.name || ticket.customer?.email || "Unknown customer"} - {ticket.priority} priority
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.35rem" }}>
+                    <div className={`ticket-status status--${ticket.status.toLowerCase()}`}>{ticket.status}</div>
+                    <Button size="sm" variant="secondary" onClick={() => navigate(`/tickets?ticketId=${ticket.id}`)}>
+                      Open
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="dashboard-section">
           <h2 className="section-title">Team Availability</h2>
           {agents.length === 0 ? (
             <div className="empty-state">
@@ -246,6 +356,12 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
                     <div className="agent-email">{agent.user?.email}</div>
                     <div className="agent-status">
                       {agent.activeTickets} active ticket{agent.activeTickets !== 1 ? "s" : ""}
+                    </div>
+                    <div className="team-load-bar">
+                      <div
+                        className={`team-load-bar__fill team-load-bar__fill--${agent.activeTickets >= 5 ? "danger" : agent.activeTickets >= 2 ? "warning" : "success"}`}
+                        style={{ width: `${Math.min(agent.activeTickets * 20, 100)}%` }}
+                      />
                     </div>
                   </div>
                   <div className={`agent-state ${agent.busyStatus ? "busy" : "available"}`}>
@@ -276,6 +392,30 @@ export function AgentDashboardPage({ user }: AgentDashboardPageProps) {
           <div className="stat-item">
             <span className="stat-label">Team Available</span>
             <span className="stat-value">{availableAgents.length}</span>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="dashboard-section">
+        <div className="section-header-inline">
+          <div>
+            <h2 className="section-title">Queue Guidance</h2>
+            <p className="section-subtitle">Simple operating rules so the workbench stays decisive.</p>
+          </div>
+          <Sparkles size={18} color="#8b5cf6" />
+        </div>
+        <div className="guidance-grid">
+          <div className="guidance-card">
+            <div className="guidance-card__title">Reply-first</div>
+            <div className="guidance-card__text">If a customer spoke last, that ticket should jump ahead of general queue pickups.</div>
+          </div>
+          <div className="guidance-card">
+            <div className="guidance-card__title">Escalation watch</div>
+            <div className="guidance-card__text">Keep escalated and high-priority tickets visible until they are clearly owned and moving.</div>
+          </div>
+          <div className="guidance-card">
+            <div className="guidance-card__title">Balance load</div>
+            <div className="guidance-card__text">If one agent is overloaded while others are available, pull from unassigned before stacking more work.</div>
           </div>
         </div>
       </Card>

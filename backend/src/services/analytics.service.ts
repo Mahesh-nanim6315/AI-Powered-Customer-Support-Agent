@@ -6,6 +6,12 @@ import { prisma } from "../config/db";
 */
 
 export class AnalyticsService {
+    private static getSuggestionConfidence(params: Record<string, unknown>): number | null {
+        const candidates = [params.confidence, params.confidenceScore, params.score];
+        const raw = candidates.find((value) => typeof value === "number") as number | undefined;
+        if (typeof raw !== "number" || Number.isNaN(raw)) return null;
+        return raw <= 1 ? raw * 100 : raw;
+    }
     /*
       1️⃣ Total Tickets
     */
@@ -219,6 +225,155 @@ export class AnalyticsService {
             csat,
             escalationRate,
             activeAgents,
+        };
+    }
+
+    static async getOperationalInsights(orgId: string) {
+        const [
+            unassignedTickets,
+            openHighPriorityTickets,
+            oldestOpenTicket,
+            firstReplyTickets,
+            agents,
+            suggestions,
+        ] = await Promise.all([
+            prisma.ticket.count({
+                where: {
+                    orgId,
+                    assignedAgentId: null,
+                    status: {
+                        notIn: ["RESOLVED", "CLOSED"] as any,
+                    },
+                },
+            }),
+            prisma.ticket.count({
+                where: {
+                    orgId,
+                    priority: "HIGH",
+                    status: {
+                        notIn: ["RESOLVED", "CLOSED"] as any,
+                    },
+                },
+            }),
+            prisma.ticket.findFirst({
+                where: {
+                    orgId,
+                    status: {
+                        notIn: ["RESOLVED", "CLOSED"] as any,
+                    },
+                },
+                select: {
+                    createdAt: true,
+                },
+                orderBy: {
+                    createdAt: "asc",
+                },
+            }),
+            prisma.ticket.findMany({
+                where: {
+                    orgId,
+                    messages: {
+                        some: {
+                            role: {
+                                in: ["AI", "AGENT"] as any,
+                            },
+                        },
+                    },
+                },
+                select: {
+                    createdAt: true,
+                    messages: {
+                        where: {
+                            role: {
+                                in: ["AI", "AGENT"] as any,
+                            },
+                        },
+                        orderBy: {
+                            createdAt: "asc",
+                        },
+                        take: 1,
+                    },
+                },
+            }),
+            prisma.agent.findMany({
+                where: {
+                    user: {
+                        orgId,
+                    },
+                },
+                include: {
+                    user: {
+                        select: {
+                            email: true,
+                        },
+                    },
+                },
+            }),
+            prisma.aiSuggestion.findMany({
+                where: { orgId },
+                select: {
+                    status: true,
+                    params: true,
+                },
+            }),
+        ]);
+
+        const avgFirstReplyMinutes = firstReplyTickets.length
+            ? firstReplyTickets.reduce((acc, ticket) => {
+                const firstReply = ticket.messages[0];
+                if (!firstReply) return acc;
+                return acc + (new Date(firstReply.createdAt).getTime() - new Date(ticket.createdAt).getTime());
+            }, 0) / firstReplyTickets.length / (1000 * 60)
+            : 0;
+
+        const oldestOpenTicketHours = oldestOpenTicket
+            ? (Date.now() - new Date(oldestOpenTicket.createdAt).getTime()) / (1000 * 60 * 60)
+            : 0;
+
+        const totalAgents = agents.length;
+        const availableAgents = agents.filter((agent) => !agent.busyStatus).length;
+        const totalActiveLoad = agents.reduce((acc, agent) => acc + (agent.activeTickets || 0), 0);
+        const busiestAgent = agents.reduce((current, agent) => {
+            if (!current || (agent.activeTickets || 0) > (current.activeTickets || 0)) {
+                return agent;
+            }
+            return current;
+        }, null as (typeof agents[number] | null));
+
+        const totalSuggestions = suggestions.length;
+        const pendingSuggestions = suggestions.filter((suggestion) => suggestion.status === "PENDING").length;
+        const executedSuggestions = suggestions.filter((suggestion) => suggestion.status === "EXECUTED").length;
+        const confidenceScores = suggestions
+            .map((suggestion) => this.getSuggestionConfidence((suggestion.params ?? {}) as Record<string, unknown>))
+            .filter((value): value is number => value !== null);
+
+        return {
+            queue: {
+                unassignedTickets,
+                openHighPriorityTickets,
+                oldestOpenTicketHours: Number(oldestOpenTicketHours.toFixed(1)),
+                avgFirstReplyMinutes: Number(avgFirstReplyMinutes.toFixed(1)),
+            },
+            workload: {
+                totalAgents,
+                availableAgents,
+                averageActiveLoad: totalAgents ? Number((totalActiveLoad / totalAgents).toFixed(1)) : 0,
+                busiestAgent: busiestAgent
+                    ? {
+                        email: busiestAgent.user.email,
+                        activeTickets: busiestAgent.activeTickets,
+                    }
+                    : null,
+            },
+            aiQuality: {
+                totalSuggestions,
+                pendingSuggestions,
+                executedSuggestions,
+                executionRate: totalSuggestions ? Number(((executedSuggestions / totalSuggestions) * 100).toFixed(1)) : 0,
+                averageConfidence: confidenceScores.length
+                    ? Number((confidenceScores.reduce((acc, value) => acc + value, 0) / confidenceScores.length).toFixed(1))
+                    : null,
+            },
         };
     }
 

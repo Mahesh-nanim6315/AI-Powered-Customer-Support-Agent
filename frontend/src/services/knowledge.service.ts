@@ -1,5 +1,5 @@
 import { apiClient } from '../lib/api-client';
-import type { KnowledgeBase, CreateKnowledgeRequest } from '../types';
+import type { KnowledgeBase, CreateKnowledgeRequest, UploadKnowledgeRequest, UploadKnowledgeResponse } from '../types';
 
 export const knowledgeService = {
     async getAll(): Promise<KnowledgeBase[]> {
@@ -12,6 +12,19 @@ export const knowledgeService = {
 
     async create(data: CreateKnowledgeRequest): Promise<KnowledgeBase> {
         return apiClient.post<KnowledgeBase>('/knowledge', data);
+    },
+
+    async uploadDocument(data: UploadKnowledgeRequest): Promise<UploadKnowledgeResponse> {
+        const formData = new FormData();
+        formData.append('file', data.file);
+        if (data.title?.trim()) {
+            formData.append('title', data.title.trim());
+        }
+        if (data.category?.trim()) {
+            formData.append('category', data.category.trim());
+        }
+
+        return apiClient.postForm<UploadKnowledgeResponse>('/knowledge/upload', formData);
     },
 
     async update(id: string, data: Partial<CreateKnowledgeRequest>): Promise<KnowledgeBase> {

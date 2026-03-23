@@ -10,8 +10,8 @@ export const aiSuggestionsService = {
         return apiClient.get<AiSuggestion[]>(`/ai/suggestions?ticketId=${ticketId}`);
     },
 
-    async approve(id: string): Promise<AiSuggestion> {
-        return apiClient.post<AiSuggestion>(`/ai/suggestions/${id}/approve`, { execute: true });
+    async approve(id: string, options?: { execute?: boolean }): Promise<AiSuggestion> {
+        return apiClient.post<AiSuggestion>(`/ai/suggestions/${id}/approve`, { execute: options?.execute ?? true });
     },
 
     async reject(id: string): Promise<AiSuggestion> {

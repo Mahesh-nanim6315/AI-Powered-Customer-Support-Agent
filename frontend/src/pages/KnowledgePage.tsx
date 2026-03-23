@@ -1,21 +1,30 @@
 import { useEffect, useState } from 'react';
 import { Card, Button, Input, TextArea, Spinner, Badge, Alert } from '../components';
-import { Plus } from 'lucide-react';
+import { FileUp, Plus } from 'lucide-react';
 import { knowledgeService } from '../services/knowledge.service';
 import type { KnowledgeBase } from '../types';
 import '../page.css';
 
+type ComposerMode = 'article' | 'upload';
+
 export function KnowledgePage() {
-  const [isAddingArticle, setIsAddingArticle] = useState(false);
+  const [composerMode, setComposerMode] = useState<ComposerMode>('article');
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [articles, setArticles] = useState<KnowledgeBase[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     category: 'General',
     content: '',
   });
-  const [articles, setArticles] = useState<KnowledgeBase[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
+  const [uploadData, setUploadData] = useState({
+    title: '',
+    category: 'Uploaded Document',
+    file: null as File | null,
+  });
 
   const sampleArticles = [
     {
@@ -53,6 +62,12 @@ export function KnowledgePage() {
     loadArticles();
   }, []);
 
+  const closeComposer = () => {
+    setIsComposerOpen(false);
+    setFormData({ title: '', category: 'General', content: '' });
+    setUploadData({ title: '', category: 'Uploaded Document', file: null });
+  };
+
   const handleAddArticle = async () => {
     if (!formData.title || !formData.category || !formData.content) {
       alert('Please fill in all fields');
@@ -63,12 +78,36 @@ export function KnowledgePage() {
     try {
       const newArticle = await knowledgeService.create(formData);
       setArticles((prev) => [newArticle, ...prev]);
-      setFormData({ title: '', category: 'General', content: '' });
-      setIsAddingArticle(false);
+      setUploadNotice(null);
+      closeComposer();
       alert('Knowledge article added successfully');
     } catch (error) {
       console.error('Failed to add article:', error);
       alert('Failed to add article. Check API server and authentication.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    if (!uploadData.file) {
+      alert('Please choose a PDF document to upload');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await knowledgeService.uploadDocument({
+        file: uploadData.file,
+        title: uploadData.title,
+        category: uploadData.category,
+      });
+      setArticles((prev) => [result.article, ...prev]);
+      setUploadNotice(`${result.uploadedFileName} indexed in ${result.chunksStored} chunk${result.chunksStored === 1 ? '' : 's'}.`);
+      closeComposer();
+    } catch (error) {
+      console.error('Failed to upload document:', error);
+      alert('Failed to upload document. Make sure the file is a readable PDF and the backend AI services are configured.');
     } finally {
       setIsLoading(false);
     }
@@ -106,57 +145,138 @@ export function KnowledgePage() {
         <div>
           <h1 className="page-title">Knowledge Base</h1>
           <p className="page-subtitle">
-            Manage text knowledge articles that feed AI and agent responses
+            Manage articles and uploaded PDF documents that feed AI and agent responses
           </p>
         </div>
-        <Button onClick={() => setIsAddingArticle(true)}>
-          <Plus size={18} />
-          Add Article
-        </Button>
+        <div className="page-actions">
+          <Button
+            variant={composerMode === 'upload' ? 'secondary' : 'primary'}
+            onClick={() => {
+              setComposerMode('article');
+              setIsComposerOpen(true);
+            }}
+          >
+            <Plus size={18} />
+            Add Article
+          </Button>
+          <Button
+            variant={composerMode === 'upload' ? 'primary' : 'secondary'}
+            onClick={() => {
+              setComposerMode('upload');
+              setIsComposerOpen(true);
+            }}
+          >
+            <FileUp size={18} />
+            Upload PDF
+          </Button>
+        </div>
       </div>
 
-      <Alert type="info" title="Current Scope">
-        This UI supports listing and creating text articles only. File upload exists on the backend, but no document-upload workflow is wired into the frontend yet.
-      </Alert>
+      {uploadNotice && (
+        <Alert type="success" title="Document uploaded" onClose={() => setUploadNotice(null)}>
+          {uploadNotice}
+        </Alert>
+      )}
 
-      {isAddingArticle && (
+      {isComposerOpen && (
         <Card className="form-card">
-          <h2 className="section-title">New Article</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <Input
-              label="Title"
-              placeholder="Article title..."
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          <div className="knowledge-composer-toggle">
+            <Button
+              variant={composerMode === 'article' ? 'primary' : 'secondary'}
+              onClick={() => setComposerMode('article')}
               disabled={isLoading}
-            />
-            <Input
-              label="Category"
-              placeholder="e.g. Billing, Product, Account"
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            >
+              Article
+            </Button>
+            <Button
+              variant={composerMode === 'upload' ? 'primary' : 'secondary'}
+              onClick={() => setComposerMode('upload')}
               disabled={isLoading}
-            />
-            <TextArea
-              label="Content"
-              placeholder="Article content..."
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              disabled={isLoading}
-            />
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <Button
-                variant="secondary"
-                onClick={() => setIsAddingArticle(false)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleAddArticle} disabled={isLoading}>
-                {isLoading ? 'Adding...' : 'Add Article'}
-              </Button>
-            </div>
+            >
+              PDF Upload
+            </Button>
           </div>
+
+          {composerMode === 'article' ? (
+            <>
+              <h2 className="section-title">New Article</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <Input
+                  label="Title"
+                  placeholder="Article title..."
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  disabled={isLoading}
+                />
+                <Input
+                  label="Category"
+                  placeholder="e.g. Billing, Product, Account"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  disabled={isLoading}
+                />
+                <TextArea
+                  label="Content"
+                  placeholder="Article content..."
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  disabled={isLoading}
+                />
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <Button variant="secondary" onClick={closeComposer} disabled={isLoading}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddArticle} disabled={isLoading}>
+                    {isLoading ? 'Adding...' : 'Add Article'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="section-title">Upload PDF Document</h2>
+              <p className="text-muted" style={{ marginTop: '-0.75rem', marginBottom: '1rem' }}>
+                PDF text will be extracted, indexed for AI retrieval, and saved as a knowledge article for agents to review later.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <Input
+                  label="Title"
+                  placeholder="Optional custom title"
+                  value={uploadData.title}
+                  onChange={(e) => setUploadData((prev) => ({ ...prev, title: e.target.value }))}
+                  disabled={isLoading}
+                />
+                <Input
+                  label="Category"
+                  placeholder="e.g. Product Docs, Policies, Billing"
+                  value={uploadData.category}
+                  onChange={(e) => setUploadData((prev) => ({ ...prev, category: e.target.value }))}
+                  disabled={isLoading}
+                />
+                <Input
+                  label="PDF File"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(e) => setUploadData((prev) => ({ ...prev, file: e.target.files?.[0] || null }))}
+                  disabled={isLoading}
+                />
+                {uploadData.file && (
+                  <div className="knowledge-upload-summary">
+                    <span>{uploadData.file.name}</span>
+                    <span>{Math.max(1, Math.round(uploadData.file.size / 1024))} KB</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <Button variant="secondary" onClick={closeComposer} disabled={isLoading}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUploadDocument} disabled={isLoading}>
+                    {isLoading ? 'Uploading...' : 'Upload PDF'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </Card>
       )}
 
@@ -164,7 +284,7 @@ export function KnowledgePage() {
         <Card className="empty-card">
           <div className="empty-state">
             <p>No articles yet</p>
-            <p className="text-muted">Add articles to seed the current knowledge base</p>
+            <p className="text-muted">Add articles or upload PDF documents to seed the knowledge base</p>
             <Button onClick={handleAddSamples} disabled={isSeeding}>
               {isSeeding ? 'Seeding Demo Articles...' : 'Seed Demo Articles'}
             </Button>

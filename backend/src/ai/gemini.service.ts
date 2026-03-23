@@ -4,7 +4,13 @@ const BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 const MODEL = process.env.OLLAMA_MODEL || "llama3";
 const API_KEY = process.env.OLLAMA_API_KEY;
 
-export async function generateGeminiResponse(prompt: string) {
+export async function generateGeminiResponse(
+  prompt: string,
+  options?: {
+    model?: string;
+    temperature?: number;
+  }
+) {
   try {
     const headers: any = {
       "Content-Type": "application/json",
@@ -17,9 +23,12 @@ export async function generateGeminiResponse(prompt: string) {
     const response = await axios.post(
       `${BASE_URL}/api/generate`,
       {
-        model: MODEL,
+        model: options?.model || MODEL,
         prompt,
         stream: false,
+        options: {
+          temperature: options?.temperature,
+        },
       },
       { headers }
     );

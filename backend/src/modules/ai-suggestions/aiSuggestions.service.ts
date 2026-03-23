@@ -12,6 +12,19 @@ export type SuggestionActionType =
   | "SEND_REFUND_LINK";
 
 export class AiSuggestionsService {
+  private static readonly suggestionInclude = {
+    ticket: {
+      include: {
+        customer: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+    },
+  } satisfies Prisma.AiSuggestionInclude;
+
   static async propose(params: {
     orgId: string;
     ticketId: string;
@@ -36,12 +49,16 @@ export class AiSuggestionsService {
         ...(filters?.ticketId ? { ticketId: filters.ticketId } : {}),
         ...(filters?.status ? { status: filters.status as any } : {}),
       },
+      include: this.suggestionInclude,
       orderBy: { createdAt: "desc" },
     });
   }
 
   static async getById(orgId: string, id: string) {
-    return prisma.aiSuggestion.findFirst({ where: { id, orgId } });
+    return prisma.aiSuggestion.findFirst({
+      where: { id, orgId },
+      include: this.suggestionInclude,
+    });
   }
 
   static async reject(orgId: string, id: string) {
@@ -50,7 +67,10 @@ export class AiSuggestionsService {
       data: { status: "REJECTED", decidedAt: new Date() },
     });
     if (updated.count === 0) return null;
-    return prisma.aiSuggestion.findFirst({ where: { id, orgId } });
+    return prisma.aiSuggestion.findFirst({
+      where: { id, orgId },
+      include: this.suggestionInclude,
+    });
   }
 
   static async approve(orgId: string, id: string) {
@@ -59,11 +79,17 @@ export class AiSuggestionsService {
       data: { status: "APPROVED", decidedAt: new Date() },
     });
     if (updated.count === 0) return null;
-    return prisma.aiSuggestion.findFirst({ where: { id, orgId } });
+    return prisma.aiSuggestion.findFirst({
+      where: { id, orgId },
+      include: this.suggestionInclude,
+    });
   }
 
   static async execute(orgId: string, id: string) {
-    const suggestion = await prisma.aiSuggestion.findFirst({ where: { id, orgId } });
+    const suggestion = await prisma.aiSuggestion.findFirst({
+      where: { id, orgId },
+      include: this.suggestionInclude,
+    });
     if (!suggestion) return null;
 
     if (suggestion.status !== "APPROVED" && suggestion.status !== "PENDING") {
@@ -93,6 +119,7 @@ export class AiSuggestionsService {
     const updated = await prisma.aiSuggestion.update({
       where: { id: suggestion.id },
       data: { status: "EXECUTED" },
+      include: this.suggestionInclude,
     });
 
     return updated;

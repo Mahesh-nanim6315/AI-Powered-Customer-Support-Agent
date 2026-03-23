@@ -10,6 +10,8 @@ import { useEmitSocket } from '../hooks/useSocket';
 import { Card, Button, Input, Select, Badge, Spinner, Modal, TextArea, Alert } from '../components';
 import { ChevronRight, Plus, Zap, Search, MessageSquare, ArrowLeft } from 'lucide-react';
 import type { TicketStatus, AuthUser, FileAttachment } from '../types';
+import '../tickets-modern.css';
+import '../chat-modern.css';
 import '../page.css';
 import { attachmentService } from '../services/attachment.service';
 import { useSearchParams } from 'react-router-dom';
@@ -486,16 +488,18 @@ export function TicketsPage({ user }: TicketsPageProps) {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="tickets-page">
+      <div className="tickets-page-header">
         <div>
-          <h1 className="page-title">Support Tickets</h1>
-          <p className="page-subtitle">Industry-style queue + live conversation workspace</p>
+          <h1 className="tickets-page-title">Support Tickets</h1>
+          <p className="tickets-page-subtitle">Manage customer conversations and support requests</p>
         </div>
-        <Button onClick={() => setIsCreateModalOpen(true)}>
-          <Plus size={18} />
-          New Ticket
-        </Button>
+        <div className="tickets-page-actions">
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <Plus size={18} />
+            New Ticket
+          </Button>
+        </div>
       </div>
 
       {showLiveNotification && (
@@ -514,68 +518,74 @@ export function TicketsPage({ user }: TicketsPageProps) {
       )}
 
       <div className="tickets-workspace">
-        <Card className={`tickets-pane tickets-pane--list ${showMobileThread ? 'tickets-pane--list-collapsed' : ''}`}>
-          {isAgent && (
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-              <Button
-                variant={agentView === 'my' ? 'primary' : 'secondary'}
-                onClick={() => setAgentView('my')}
-              >
-                My Tickets ({tickets.length})
-              </Button>
-              <Button
-                variant={agentView === 'unassigned' ? 'primary' : 'secondary'}
-                onClick={() => setAgentView('unassigned')}
-              >
-                Unassigned ({unassignedTickets.length})
-              </Button>
+        <div className="tickets-list-panel">
+          <div className="tickets-list-header">
+            {isAgent && (
+              <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+                <Button
+                  variant={agentView === 'my' ? 'primary' : 'secondary'}
+                  onClick={() => setAgentView('my')}
+                  size="sm"
+                >
+                  My Tickets ({tickets.length})
+                </Button>
+                <Button
+                  variant={agentView === 'unassigned' ? 'primary' : 'secondary'}
+                  onClick={() => setAgentView('unassigned')}
+                  size="sm"
+                >
+                  Unassigned ({unassignedTickets.length})
+                </Button>
+              </div>
+            )}
+            <div className="tickets-list-filters">
+              <div className="filter-row">
+                <div className="search-input-wrapper">
+                  <Search size={16} />
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search tickets..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <select
+                  className="filter-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="OPEN">Open</option>
+                  <option value="AI_IN_PROGRESS">AI In Progress</option>
+                  <option value="ESCALATED">Escalated</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="RESOLVED">Resolved</option>
+                  <option value="CLOSED">Closed</option>
+                </select>
+                <select
+                  className="filter-select"
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                >
+                  <option value="">All Priorities</option>
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                </select>
+              </div>
             </div>
-          )}
-          <div className="filters-row" style={{ marginBottom: '1rem' }}>
-            <div className="filter-input">
-              <Search size={20} />
-              <Input
-                placeholder="Search by subject or customer..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ border: 'none', padding: '0.5rem' }}
-              />
-            </div>
-            <Select
-              options={[
-                { value: '', label: 'All Statuses' },
-                { value: 'OPEN', label: 'Open' },
-                { value: 'AI_IN_PROGRESS', label: 'AI In Progress' },
-                { value: 'ESCALATED', label: 'Escalated' },
-                { value: 'IN_PROGRESS', label: 'In Progress' },
-                { value: 'RESOLVED', label: 'Resolved' },
-                { value: 'CLOSED', label: 'Closed' },
-              ]}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            />
-            <Select
-              options={[
-                { value: '', label: 'All Priorities' },
-                { value: 'LOW', label: 'Low' },
-                { value: 'MEDIUM', label: 'Medium' },
-                { value: 'HIGH', label: 'High' },
-              ]}
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-            />
           </div>
 
-          <div className="tickets-list tickets-list--compact">
+          <div className="tickets-list">
             {filteredActiveTickets.map((ticket) => {
               const summary = getTicketListSummary(ticket);
 
               return (
-                <Card
+                <div
                   key={ticket.id}
-                  hoverable
+                  className={`ticket-card ${selectedTicketId === ticket.id ? 'ticket-card--active' : ''}`}
                   onClick={() => {
-                    if (isAdmin) return;
                     setSelectedTicketId(ticket.id);
                     setSearchParams((prev) => {
                       const next = new URLSearchParams(prev);
@@ -583,54 +593,51 @@ export function TicketsPage({ user }: TicketsPageProps) {
                       return next;
                     });
                   }}
-                  className={`ticket-card ${selectedTicketId === ticket.id ? 'ticket-card--active' : ''}`}
                 >
-                  <div className="ticket-content">
+                  <div className="ticket-card-content">
                     <div className="ticket-main">
                       <h3 className="ticket-title">{ticket.subject}</h3>
                       <p className="ticket-customer">{ticket.customer?.name || 'Unknown Customer'}</p>
-                      <div className="ticket-meta" style={{ marginBottom: '0.35rem' }}>
+                      <div className="ticket-preview">
+                        {summary.preview}
+                      </div>
+                      <div className="ticket-meta">
                         <span>{new Date(ticket.createdAt).toLocaleDateString()}</span>
                         <span>•</span>
                         <span>{ticket.messages?.length || 0} messages</span>
                       </div>
-                      <div style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '0.35rem' }}>
-                        {summary.preview}
-                      </div>
-                      <Badge variant={summary.helperVariant as any}>{summary.helper}</Badge>
+                      <div className="ticket-helper-badge">{summary.helper}</div>
                     </div>
                     <div className="ticket-side">
                       <div className="ticket-badges">
-                        <Badge variant={statusColors[ticket.status] as any}>
+                        <div className={`ticket-status-badge--${ticket.status.toLowerCase()} ticket-status-badge`}>
                           {statusLabelMap[ticket.status] || ticket.status}
-                        </Badge>
-                        <Badge variant={priorityColors[ticket.priority] as any}>{ticket.priority}</Badge>
+                        </div>
+                        <div className={`ticket-priority-badge--${ticket.priority.toLowerCase()} ticket-priority-badge`}>
+                          {ticket.priority}
+                        </div>
                       </div>
-                      <ChevronRight size={20} className="ticket-arrow" />
                     </div>
                   </div>
-                </Card>
+                </div>
               );
             })}
           </div>
-        </Card>
+        </div>
 
-        <Card className={`tickets-pane tickets-pane--chat ${!selectedTicketId && !isAdmin ? 'tickets-pane--chat-empty' : ''}`}>
-          {isAdmin ? (
+        <div className="tickets-chat-panel">
+          {!selectedTicketId ? (
             <div className="empty-state">
               <MessageSquare size={48} />
-              <p>Admin view is read-only. Chat is disabled.</p>
-            </div>
-          ) : !selectedTicketId ? (
-            <div className="empty-state ticket-empty-state">
-              <MessageSquare size={48} />
-              <p>Select a ticket to open the conversation</p>
-              <p className="text-muted">
-                Review the latest reply state on the left, then open the thread to respond, download files, or change status.
+              <h2 className="empty-state-title">Select a Ticket</h2>
+              <p className="empty-state-description">
+                Choose a ticket from the list to view and respond to customer conversations.
               </p>
             </div>
           ) : selectedTicketQuery.isLoading ? (
-            <Spinner />
+            <div className="empty-state">
+              <Spinner />
+            </div>
           ) : (
             <div className="chat-panel">
               <div className="chat-header">
@@ -640,25 +647,18 @@ export function TicketsPage({ user }: TicketsPageProps) {
                       <Button
                         variant="secondary"
                         onClick={handleMobileBackToList}
+                        size="sm"
                       >
                         <ArrowLeft size={16} />
                         Back to tickets
                       </Button>
                     </div>
                   )}
-                  <h3 style={{ margin: 0 }}>{selectedTicket?.subject}</h3>
-                  <div className="ticket-meta" style={{ marginTop: '0.35rem' }}>
+                  <h3 className="chat-header-title">{selectedTicket?.subject}</h3>
+                  <div className="chat-header-meta">
                     <span>{selectedTicket?.customer?.name || 'Unknown Customer'}</span>
                     <span>•</span>
-                    <span>{selectedTicket?.id}</span>
-                  </div>
-                  <div className="ticket-thread-summary">
-                    <span>
-                      Last update:{' '}
-                      {selectedTicketLatestMessage
-                        ? `${selectedTicketLatestMessage.role} • ${new Date(selectedTicketLatestMessage.createdAt).toLocaleString()}`
-                        : 'No messages yet'}
-                    </span>
+                    <span>#{selectedTicket?.id}</span>
                   </div>
                 </div>
                 <div className="chat-header-actions">
@@ -669,10 +669,10 @@ export function TicketsPage({ user }: TicketsPageProps) {
                   )}
                   {canEditOrDeleteTicket && selectedTicket && (
                     <>
-                      <Button variant="secondary" onClick={handleOpenEditModal}>
+                      <Button variant="secondary" onClick={handleOpenEditModal} size="sm">
                         Edit
                       </Button>
-                      <Button variant="danger" onClick={handleDeleteTicket} disabled={deleteTicketMutation.isPending}>
+                      <Button variant="danger" onClick={handleDeleteTicket} disabled={deleteTicketMutation.isPending} size="sm">
                         {deleteTicketMutation.isPending ? 'Deleting...' : 'Delete'}
                       </Button>
                     </>
@@ -687,21 +687,16 @@ export function TicketsPage({ user }: TicketsPageProps) {
                       variant="secondary"
                       onClick={() => handleReopenTicket(selectedTicket.id)}
                       disabled={reopenTicketMutation.isPending}
+                      size="sm"
                     >
-                      {reopenTicketMutation.isPending ? 'Reopening...' : 'Reopen Ticket'}
+                      {reopenTicketMutation.isPending ? 'Reopening...' : 'Reopen'}
                     </Button>
                   )}
                   {canUpdateStatus && selectedTicket && (
                     <select
                       value={selectedTicket.status}
                       onChange={(e) => handleStatusChange(selectedTicket.id, e.target.value as TicketStatus)}
-                      style={{
-                        padding: '0.35rem 0.5rem',
-                        borderRadius: '8px',
-                        border: '1px solid var(--color-border)',
-                        background: 'var(--color-surface)',
-                        fontSize: '0.8rem',
-                      }}
+                      className="filter-select"
                     >
                       {statusOptions.map((status) => (
                         <option key={status} value={status}>{status}</option>
@@ -715,6 +710,17 @@ export function TicketsPage({ user }: TicketsPageProps) {
               </div>
 
               <div className="chat-messages">
+                {isAdmin && (
+                  <div className="thread-insight-card">
+                    <div className="thread-insight-title">Admin oversight mode</div>
+                    <div className="thread-insight-row">
+                      <span>You can review the full conversation, ticket activity, and current status here.</span>
+                    </div>
+                    <div className="thread-insight-row">
+                      <span>Replies stay disabled for admins so the ticket remains owned by agents and customers.</span>
+                    </div>
+                  </div>
+                )}
                 {(assignmentHistoryQuery.data?.history || []).length > 0 && (
                   <div className="thread-insight-card">
                     <div className="thread-insight-title">Assignment history</div>
@@ -728,7 +734,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
                 {(activityQuery.data?.activity || []).length > 0 && (
                   <div className="thread-insight-card">
                     <div className="thread-insight-title">Recent activity</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                       {(activityQuery.data?.activity || []).slice(0, 6).map((entry) => (
                         <div key={entry.id} className="thread-insight-row">
                           <span>
@@ -740,31 +746,72 @@ export function TicketsPage({ user }: TicketsPageProps) {
                     </div>
                   </div>
                 )}
-                {(selectedTicket?.messages || []).map((msg) => (
-                  <div key={msg.id} className={`chat-bubble chat-bubble--${msg.role.toLowerCase()}`}>
+                {(selectedTicket?.messages || []).map((msg) => {
+              const getInitials = (role: string) => {
+                if (role === 'AI') return '🤖';
+                if (role === 'CUSTOMER' && selectedTicket?.customer?.name) {
+                  return selectedTicket.customer.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+                }
+                if (role === 'AGENT' && user?.email) {
+                  const emailParts = user.email.split('@')[0];
+                  if (emailParts) {
+                    return emailParts.split('.').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+                  }
+                }
+                return role.slice(0, 2);
+              };
+              
+              const getAvatarColor = (role: string) => {
+                switch (role) {
+                  case 'CUSTOMER': return 'var(--color-gray-400)';
+                  case 'AGENT': return 'var(--color-primary-600)';
+                  case 'AI': return 'var(--color-success)';
+                  default: return 'var(--color-gray-400)';
+                }
+              };
+
+              return (
+                <div key={msg.id} className={`chat-bubble chat-bubble--${msg.role.toLowerCase()}`}>
+                  <div className="chat-bubble-header">
+                    <div 
+                      className="chat-bubble-avatar"
+                      style={{ background: getAvatarColor(msg.role) }}
+                    >
+                      {getInitials(msg.role)}
+                    </div>
                     <div className="chat-bubble-role">{msg.role}</div>
-                    <div>{msg.content}</div>
-                    {(attachmentsByMessage[msg.id] || []).length > 0 && (
-                      <div className="message-attachments">
-                        {attachmentsByMessage[msg.id]?.map((attachment) => (
-                          <div key={attachment.id} className="attachment-chip">
-                            <div className="attachment-chip__meta">
-                              <span className="attachment-chip__name">{attachment.originalName}</span>
-                              <span>{Math.max(1, Math.round(attachment.size / 1024))} KB</span>
-                            </div>
-                            <Button
-                              variant="secondary"
-                              onClick={() => handleDownloadAttachment(attachment.id, attachment.originalName)}
-                            >
-                              Download
-                            </Button>
+                  </div>
+                  <div className="chat-bubble-content">{msg.content}</div>
+                  {(attachmentsByMessage[msg.id] || []).length > 0 && (
+                    <div className="message-attachments">
+                      {attachmentsByMessage[msg.id]?.map((attachment) => (
+                        <div key={attachment.id} className="attachment-chip">
+                          <div className="attachment-chip__meta">
+                            <span className="attachment-chip__name">{attachment.originalName}</span>
+                            <span className="attachment-chip__size">{Math.max(1, Math.round(attachment.size / 1024))} KB</span>
                           </div>
-                        ))}
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleDownloadAttachment(attachment.id, attachment.originalName)}
+                            size="sm"
+                          >
+                            Download
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="chat-bubble-footer">
+                    <div className="chat-bubble-time">{new Date(msg.createdAt).toLocaleString()}</div>
+                    {msg.role === 'AGENT' && (
+                      <div className="chat-bubble-status chat-bubble-status--delivered">
+                        <span>✓✓</span>
                       </div>
                     )}
-                    <div className="chat-bubble-time">{new Date(msg.createdAt).toLocaleString()}</div>
                   </div>
-                ))}
+                </div>
+              );
+            })}
                 {realtime.typingIndicator?.ticketId === selectedTicketId && realtime.typingIndicator?.isTyping && (
                   <div className="chat-typing">{realtime.typingIndicator?.actor || 'Someone'} is typing...</div>
                 )}
@@ -793,10 +840,10 @@ export function TicketsPage({ user }: TicketsPageProps) {
                       ))}
                     </div>
                   )}
-                  <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '-0.25rem' }}>
+                  <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'calc(var(--space-1) * -1)' }}>
                     AI auto-reply is triggered for customer messages. Agent/Admin messages are human replies only.
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-3)' }}>
                     <Button
                       onClick={handleSendMessage}
                       disabled={(addMessageMutation.isPending || uploadAttachmentsMutation.isPending) || (!messageText.trim() && pendingFiles.length === 0)}
@@ -808,7 +855,7 @@ export function TicketsPage({ user }: TicketsPageProps) {
               )}
             </div>
           )}
-        </Card>
+        </div>
       </div>
 
       <Modal
@@ -903,4 +950,3 @@ export function TicketsPage({ user }: TicketsPageProps) {
     </div>
   );
 }
-

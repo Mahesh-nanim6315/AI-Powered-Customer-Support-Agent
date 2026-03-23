@@ -21,6 +21,7 @@ import { LogsPage } from './pages/LogsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { authService } from './services/auth.service';
 import type { AuthUser } from './types';
+import './design-system.css';
 import './App.css';
 
 const AUTH_STORAGE_KEY = 'chitti_auth_user';

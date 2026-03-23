@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useAdminAnalytics, useTicketTrends, useAgentPerformance } from '../hooks/useAnalytics';
+import { useAdminAnalytics, useTicketTrends, useAgentPerformance, useOperationalInsights } from '../hooks/useAnalytics';
 import { Card, Spinner, Alert } from '../components';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
-import { TrendingUp, Users, Zap, MessageSquare } from 'lucide-react';
+import { TrendingUp, Users, Zap, MessageSquare, ShieldCheck, Gauge, Bot } from 'lucide-react';
 import '../page.css';
+import '../dashboard.css';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
@@ -14,8 +15,9 @@ export function AnalyticsPage() {
   const analyticsQuery = useAdminAnalytics(true);
   const trendsQuery = useTicketTrends(selectedPeriod, true);
   const agentPerformanceQuery = useAgentPerformance(true);
+  const insightsQuery = useOperationalInsights(true);
 
-  if (analyticsQuery.isLoading || trendsQuery.isLoading || agentPerformanceQuery.isLoading) {
+  if (analyticsQuery.isLoading || trendsQuery.isLoading || agentPerformanceQuery.isLoading || insightsQuery.isLoading) {
     return (
       <div className="page">
         <Spinner fullScreen />
@@ -26,9 +28,11 @@ export function AnalyticsPage() {
   const analytics = analyticsQuery.data;
   const trends = trendsQuery.data || {};
   const agentPerformance = agentPerformanceQuery.data || [];
+  const insights = insightsQuery.data;
+  const periodLabel = selectedPeriod === 7 ? '7 days' : selectedPeriod === 30 ? '30 days' : '90 days';
 
   // Prepare data for line chart
-  const trendsData = Object.entries(trends).map(([date, data]) => ({
+  const trendsData = Object.entries(trends).sort(([left], [right]) => left.localeCompare(right)).map(([date, data]) => ({
     date: new Date(date).toLocaleDateString(),
     created: data.created,
     resolved: data.resolved,
@@ -84,11 +88,12 @@ export function AnalyticsPage() {
             Summary analytics from the currently mounted admin endpoints
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="analytics-toolbar">
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(Number(e.target.value))}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="analytics-select"
+            aria-label="Select analytics period"
           >
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
@@ -97,15 +102,79 @@ export function AnalyticsPage() {
         </div>
       </div>
 
-      {(analyticsQuery.isError || trendsQuery.isError || agentPerformanceQuery.isError) && (
+      {(analyticsQuery.isError || trendsQuery.isError || agentPerformanceQuery.isError || insightsQuery.isError) && (
         <Alert type="warning" title="Unable to load analytics">
           Some analytics data may not be available. Please try again later.
         </Alert>
       )}
 
-      <Alert type="info" title="Current Scope">
-        This page shows the live overview, ticket trend, and agent performance endpoints. SLA, workload balancing, and AI quality analytics are still missing.
-      </Alert>
+      <Card className="dashboard-highlight">
+        <div className="dashboard-highlight__label">Analytics Snapshot</div>
+        <div className="dashboard-highlight__title">
+          {analytics?.activeTickets || 0} active tickets across the last {periodLabel}, with {Math.round((analytics?.aiResolutionRate || 0) * 100)}% handled by AI and {analytics?.activeAgents || 0} agents currently available.
+        </div>
+        <div className="dashboard-highlight__detail">
+          Use this page to spot volume changes, resolution mix, and which agents are carrying the most ticket volume right now.
+        </div>
+      </Card>
+
+      {insights && (
+        <div className="insights-grid">
+          <Card className="insight-card">
+            <div className="insight-card__header">
+              <div className="metric-icon metric-icon--orange">
+                <ShieldCheck size={22} />
+              </div>
+              <div>
+                <h2 className="section-title" style={{ marginBottom: '0.35rem' }}>Queue & SLA Signals</h2>
+                <p className="section-subtitle" style={{ margin: 0 }}>Live indicators for wait time and first-response pressure</p>
+              </div>
+            </div>
+            <div className="insight-list">
+              <div className="insight-row"><span>Unassigned tickets</span><strong>{insights.queue.unassignedTickets}</strong></div>
+              <div className="insight-row"><span>Open high-priority tickets</span><strong>{insights.queue.openHighPriorityTickets}</strong></div>
+              <div className="insight-row"><span>Oldest open ticket</span><strong>{insights.queue.oldestOpenTicketHours}h</strong></div>
+              <div className="insight-row"><span>Average first reply</span><strong>{insights.queue.avgFirstReplyMinutes}m</strong></div>
+            </div>
+          </Card>
+
+          <Card className="insight-card">
+            <div className="insight-card__header">
+              <div className="metric-icon metric-icon--purple">
+                <Gauge size={22} />
+              </div>
+              <div>
+                <h2 className="section-title" style={{ marginBottom: '0.35rem' }}>Workload Balance</h2>
+                <p className="section-subtitle" style={{ margin: 0 }}>Current team capacity and active-load spread</p>
+              </div>
+            </div>
+            <div className="insight-list">
+              <div className="insight-row"><span>Total agents</span><strong>{insights.workload.totalAgents}</strong></div>
+              <div className="insight-row"><span>Available agents</span><strong>{insights.workload.availableAgents}</strong></div>
+              <div className="insight-row"><span>Average active load</span><strong>{insights.workload.averageActiveLoad}</strong></div>
+              <div className="insight-row"><span>Busiest agent</span><strong>{insights.workload.busiestAgent ? `${insights.workload.busiestAgent.email} (${insights.workload.busiestAgent.activeTickets})` : 'N/A'}</strong></div>
+            </div>
+          </Card>
+
+          <Card className="insight-card">
+            <div className="insight-card__header">
+              <div className="metric-icon metric-icon--green">
+                <Bot size={22} />
+              </div>
+              <div>
+                <h2 className="section-title" style={{ marginBottom: '0.35rem' }}>AI Review Quality</h2>
+                <p className="section-subtitle" style={{ margin: 0 }}>Suggestion review throughput and confidence coverage</p>
+              </div>
+            </div>
+            <div className="insight-list">
+              <div className="insight-row"><span>Total suggestions</span><strong>{insights.aiQuality.totalSuggestions}</strong></div>
+              <div className="insight-row"><span>Pending review</span><strong>{insights.aiQuality.pendingSuggestions}</strong></div>
+              <div className="insight-row"><span>Executed suggestions</span><strong>{insights.aiQuality.executedSuggestions}</strong></div>
+              <div className="insight-row"><span>Average confidence</span><strong>{insights.aiQuality.averageConfidence !== null ? `${insights.aiQuality.averageConfidence}%` : 'No scored suggestions yet'}</strong></div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Metrics Cards */}
       <div className="metrics-grid">

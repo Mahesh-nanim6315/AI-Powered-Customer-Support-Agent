@@ -1,13 +1,12 @@
 import { generateGeminiResponse } from "../ai/gemini.service";
-import {
-  searchKnowledge,
-} from "../ai/tools/tools.service";
+import { searchKnowledge } from "../ai/tools/tools.service";
 import { analyzeSentiment } from "../ai/sentiment.service";
 import { AiSuggestionsService } from "../modules/ai-suggestions/aiSuggestions.service";
 import { detectIntent } from "../ai/intent.service";
 import { appendMemory, getRecentMemory } from "../ai/memory.service";
 import { buildContext } from "../ai/context-builder";
 import { systemPrompt } from "../prompts/system.prompt";
+import { AiSettingsService } from "./aiSettings.service";
 
 export type AiMode = "llm" | "kb_fallback" | "safe_fallback";
 
@@ -39,6 +38,24 @@ function isDuplicateChargeRefund(message: string) {
   );
 }
 
+function buildConfiguredSystemPrompt(settings: {
+  replyTone: string;
+  confidenceThreshold: number;
+  systemPrompt?: string | null;
+}) {
+  const configuredSections = [
+    systemPrompt.trim(),
+    `Configured reply tone: ${settings.replyTone}.`,
+    `Configured confidence threshold: ${Math.round(settings.confidenceThreshold * 100)}%. If confidence is below this threshold, avoid overclaiming and prefer a fallback or human handoff.`,
+  ];
+
+  if (settings.systemPrompt?.trim()) {
+    configuredSections.push(`Organization instructions:\n${settings.systemPrompt.trim()}`);
+  }
+
+  return configuredSections.join("\n\n");
+}
+
 export async function runAgentDetailed(
   message: string,
   orgId: string,
@@ -48,6 +65,45 @@ export async function runAgentDetailed(
   let mode: AiMode = "llm";
   let finalAnswer = "";
   let shouldEscalate = false;
+
+  const aiSettings = await AiSettingsService.getByOrgId(orgId);
+
+  if (!aiSettings.aiEnabled) {
+    finalAnswer = "AI assistance is currently disabled for this workspace. A human support agent will review your message shortly.";
+    await appendMemory(orgId, ticketId, "USER", message);
+    await appendMemory(orgId, ticketId, "AI", finalAnswer);
+    return { reply: finalAnswer, mode: "safe_fallback", shouldEscalate: true };
+  }
+
+  const proposeSuggestion = async (
+    actionType: "ESCALATE_TO_HUMAN" | "CHANGE_PRIORITY" | "UPDATE_TICKET_STATUS" | "SEND_REFUND_LINK",
+    params: Record<string, unknown>
+  ) => {
+    const suggestion = await AiSuggestionsService.propose({
+      orgId,
+      ticketId,
+      actionType,
+      params,
+    });
+
+    io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
+
+    if (!aiSettings.autoExecuteSuggestions) {
+      return suggestion;
+    }
+
+    const approved = await AiSuggestionsService.approve(orgId, suggestion.id);
+    const finalSuggestion = approved
+      ? await AiSuggestionsService.execute(orgId, suggestion.id)
+      : suggestion;
+
+    if (finalSuggestion) {
+      io?.to(`org-${orgId}`).emit("suggestion-updated", finalSuggestion);
+    }
+
+    return finalSuggestion ?? suggestion;
+  };
+
   await appendMemory(orgId, ticketId, "USER", message);
   io?.to(`ticket-${ticketId}`).emit("typing_indicator", { ticketId, actor: "AI", isTyping: true });
 
@@ -57,45 +113,20 @@ export async function runAgentDetailed(
   const retrievedContext = await searchKnowledge(message, orgId);
   const retrievedDocs = retrievedContext ? [retrievedContext] : [];
 
-  // Human-in-the-loop: propose sensitive actions instead of executing directly.
   if (sentiment.priorityScore >= 8) {
-    const suggestion = await AiSuggestionsService.propose({
-      orgId,
-      ticketId,
-      actionType: "CHANGE_PRIORITY",
-      params: { priority: "HIGH", reason: "High urgency detected" },
-    });
-    io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
+    await proposeSuggestion("CHANGE_PRIORITY", { priority: "HIGH", reason: "High urgency detected" });
   }
 
-  if (sentiment.sentiment === "ANGRY" || sentiment.sentiment === "URGENT") {
-    const suggestion = await AiSuggestionsService.propose({
-      orgId,
-      ticketId,
-      actionType: "ESCALATE_TO_HUMAN",
-      params: { reason: `Sentiment: ${sentiment.sentiment}` },
-    });
-    io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
+  if (aiSettings.escalationEnabled && (sentiment.sentiment === "ANGRY" || sentiment.sentiment === "URGENT")) {
+    await proposeSuggestion("ESCALATE_TO_HUMAN", { reason: `Sentiment: ${sentiment.sentiment}` });
   }
 
   if (intent === "REFUND_REQUEST") {
-    const suggestion = await AiSuggestionsService.propose({
-      orgId,
-      ticketId,
-      actionType: "SEND_REFUND_LINK",
-      params: { amount: 0, reason: "Refund intent detected" },
-    });
-    io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
+    await proposeSuggestion("SEND_REFUND_LINK", { amount: 0, reason: "Refund intent detected" });
   }
 
   if (isExplicitHumanHandoffRequest(message)) {
-    const suggestion = await AiSuggestionsService.propose({
-      orgId,
-      ticketId,
-      actionType: "ESCALATE_TO_HUMAN",
-      params: { reason: "Customer explicitly requested human agent" },
-    });
-    io?.to(`org-${orgId}`).emit("suggestion-created", suggestion);
+    await proposeSuggestion("ESCALATE_TO_HUMAN", { reason: "Customer explicitly requested human agent" });
 
     finalAnswer = "Understood. I have escalated this ticket to a human support agent, and they will assist you shortly.";
     mode = "safe_fallback";
@@ -106,7 +137,7 @@ export async function runAgentDetailed(
   }
 
   const prompt = buildContext(
-    systemPrompt,
+    buildConfiguredSystemPrompt(aiSettings),
     retrievedDocs,
     memory.map((m) => ({
       role: m.role === "AI" ? "AI" : "USER",
@@ -115,29 +146,38 @@ export async function runAgentDetailed(
     `Intent: ${intent}\nSentiment: ${sentiment.sentiment}\nMessage: ${message}`
   );
 
-  finalAnswer = await generateGeminiResponse(prompt);
+  finalAnswer = await generateGeminiResponse(prompt, {
+    model: aiSettings.model,
+    temperature: aiSettings.temperature,
+  });
+
   const modelUnavailable = isModelUnavailableResponse(finalAnswer);
-  if (modelUnavailable && retrievedContext) {
+
+  if (modelUnavailable && retrievedContext && aiSettings.kbFallbackEnabled) {
     const concise = retrievedContext.split("\n").slice(0, 3).join(" ").trim();
     if (isDuplicateChargeRefund(message) || intent === "REFUND_REQUEST") {
       finalAnswer =
-        "I understand this is about a duplicate charge/refund. " +
-        "I have flagged this for human review and a support agent will verify the billing details and process next steps shortly.\n\n" +
+        "I understand this is about a duplicate charge or refund request. " +
+        "I have flagged this for human review and a support agent will verify the billing details shortly.\n\n" +
         (concise || "Please keep your transaction details ready for faster resolution.");
       shouldEscalate = true;
     } else {
       finalAnswer = concise || "I found relevant guidance in our support knowledge base and shared it above.";
     }
     mode = "kb_fallback";
-  } else if (modelUnavailable) {
+  } else if (modelUnavailable && aiSettings.safeFallbackEnabled) {
     if (isDuplicateChargeRefund(message) || intent === "REFUND_REQUEST") {
       finalAnswer =
-        "I understand this is a billing/refund issue. I have flagged your request for human support, and an agent will assist you shortly.";
+        "I understand this is a billing or refund issue. I have flagged your request for human support, and an agent will assist you shortly.";
       shouldEscalate = true;
     } else {
       finalAnswer = "I could not fully process that request right now. A human support agent will review your message shortly.";
       shouldEscalate = true;
     }
+    mode = "safe_fallback";
+  } else if (modelUnavailable) {
+    finalAnswer = "I could not confidently generate a response right now. A support agent will review your message shortly.";
+    shouldEscalate = true;
     mode = "safe_fallback";
   }
 
