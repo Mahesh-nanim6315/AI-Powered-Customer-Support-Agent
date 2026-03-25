@@ -61,6 +61,10 @@ export const sendMessage = async (req: Request, res: Response) => {
     }
 
     const messageRole = userRole === "CUSTOMER" ? "CUSTOMER" : "AGENT";
+    const currentStatus = toApiStatus(ticket.status);
+    const isHumanOwnedTicket =
+      Boolean(ticket.assignedAgentId) ||
+      ["ESCALATED", "IN_PROGRESS", "RESOLVED", "CLOSED"].includes(currentStatus);
 
     // Acquire lock before persisting the message so failed lock attempts do not
     // create duplicate or partially-processed messages.
@@ -104,6 +108,30 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     try {
       if (messageRole === "CUSTOMER") {
+        // Once a ticket has been handed to a human, customer follow-up messages should
+        // remain in the human workflow. AI can still assist internally, but it should
+        // not keep replying in the customer thread after handoff.
+        if (isHumanOwnedTicket) {
+          let nextStatus = currentStatus;
+
+          if (["RESOLVED", "CLOSED"].includes(currentStatus)) {
+            nextStatus = ticket.assignedAgentId ? "IN_PROGRESS" : "ESCALATED";
+            await TicketService.updateTicketStatus(ticketId, orgId, nextStatus);
+          }
+
+          await appendMemory(orgId, ticketId, "USER", content);
+          io.to(`ticket-${ticketId}`).emit("message-added", userMessage);
+          io.to(`ticket-${ticketId}`).emit("customer_message", userMessage);
+          io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: nextStatus });
+          io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: nextStatus });
+
+          return res.json({
+            success: true,
+            userMessage,
+            handoffMode: "human",
+          });
+        }
+
         const aiInProgressDb = toDbStatus("AI_IN_PROGRESS");
         await prisma.ticket.update({
           where: { id: ticketId },
@@ -149,7 +177,6 @@ export const sendMessage = async (req: Request, res: Response) => {
       await NotificationService.sendMessageNotification(ticketId, "AGENT", orgId);
 
       // Enterprise workflow: first human reply on escalated ticket moves it to IN_PROGRESS.
-      const currentStatus = toApiStatus(ticket.status);
       if (currentStatus === "ESCALATED") {
         await prisma.ticket.update({
           where: { id: ticketId },

@@ -6,5 +6,6 @@ export function useTicketAssignmentHistory(ticketId: string, enabled = true) {
     queryKey: ["tickets", ticketId, "assignments"],
     queryFn: () => ticketsService.getAssignmentHistory(ticketId),
     enabled: enabled && !!ticketId,
+    staleTime: 1000 * 20,
   });
 }

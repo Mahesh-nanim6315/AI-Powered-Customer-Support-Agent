@@ -320,6 +320,7 @@ export class MessageReadService {
         FROM "TicketMessage" tm
         LEFT JOIN "MessageReadReceipt" mrr ON tm.id = mrr."messageId" AND mrr."userId" = ${userId}
         WHERE tm."ticketId" = ${ticketId}
+        AND (tm."senderId" IS NULL OR tm."senderId" <> ${userId})
         AND mrr."messageId" IS NULL
       ` as { count: number };
 

@@ -7,6 +7,7 @@ export function useTickets(): UseQueryResult<Ticket[]> {
     return useQuery({
         queryKey: ['tickets'],
         queryFn: () => ticketsService.getAll(),
+        staleTime: 1000 * 30,
     });
 }
 
@@ -15,6 +16,7 @@ export function useUnassignedTickets(enabled: boolean): UseQueryResult<Ticket[]>
         queryKey: ['tickets', 'unassigned'],
         queryFn: () => ticketsService.getUnassigned(),
         enabled,
+        staleTime: 1000 * 15,
     });
 }
 
@@ -23,6 +25,7 @@ export function useTicket(id: string): UseQueryResult<Ticket> {
         queryKey: ['tickets', id],
         queryFn: () => ticketsService.getById(id),
         enabled: !!id,
+        staleTime: 1000 * 15,
     });
 }
 

@@ -15,7 +15,7 @@ import aiSettingsRoutes from "./routes/aiSettings.routes";
 import logsRoutes from "./routes/logs.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { orgMiddleware } from "./middlewares/org.middleware";
-import { rateLimitDefault, rateLimitAuth, rateLimitMessages } from "./middlewares/rateLimit.middleware";
+import { rateLimitDefault, rateLimitAuth } from "./middlewares/rateLimit.middleware";
 import { securityValidation, sanitizeInputs, securityHeaders } from "./middlewares/security.middleware";
 
 const app = express();
@@ -28,7 +28,6 @@ app.use(express.json());
 
 // Apply rate limiting
 // app.use("/auth", rateLimitAuth);
-app.use("/tickets", rateLimitMessages);
 app.use(rateLimitDefault);
 
 // Apply security validation and sanitization
