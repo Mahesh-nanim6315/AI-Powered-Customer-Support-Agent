@@ -296,7 +296,7 @@ model AiSettings {
   id                     String       @id @default(uuid())
   orgId                  String       @unique
   aiEnabled              Boolean      @default(true)
-  model                  String       @default("gpt-4.1-mini")
+  model                  String       @default("llama3")
   temperature            Float        @default(0.4)
   confidenceThreshold    Float        @default(0.75)
   autoExecuteSuggestions Boolean      @default(false)

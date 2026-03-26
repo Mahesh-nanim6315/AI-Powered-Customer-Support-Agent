@@ -290,6 +290,13 @@ export interface AiSettings {
   systemPrompt?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  runtimeConfig?: {
+    chatProvider: string;
+    chatModelDefault: string;
+    embeddingProvider: string;
+    embeddingModel: string;
+    embeddingDimension: number;
+  };
 }
 
 export interface LogEntry {

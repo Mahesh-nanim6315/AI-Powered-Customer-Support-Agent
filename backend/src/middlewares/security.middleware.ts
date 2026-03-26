@@ -7,13 +7,31 @@ import { Request, Response, NextFunction } from "express";
 // SQL Injection prevention patterns
 const sqlInjectionPatterns = [
   /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)\b)/i,
-  /(--|#|\/\*|\*\/|;|'|"|`)/i,
+  /(--|#|\/\*|\*\/)/i,
   /(\bOR\b|\bAND\b).*(\b=|\bLIKE\b)/i,
   /\bWAITFOR\b.*\bDELAY\b/i,
   /\bBENCHMARK\b/i,
   /\bSLEEP\b/i,
   /\bPG_SLEEP\b/i,
   /\bDBMS_PIPE\b/i
+];
+
+// Body text for tickets/messages should allow normal punctuation.
+const suspiciousBodyPatterns = [
+  /(--|#|\/\*|\*\/)/i,
+  /\bUNION\b\s+\bSELECT\b/i,
+  /\bDROP\b\s+\bTABLE\b/i,
+  /\bALTER\b\s+\bTABLE\b/i,
+  /\bINSERT\b\s+\bINTO\b/i,
+  /\bDELETE\b\s+\bFROM\b/i,
+  /\bUPDATE\b\s+\w+\s+\bSET\b/i,
+  /\bEXEC(?:UTE)?\b/i,
+  /\bWAITFOR\b.*\bDELAY\b/i,
+  /\bBENCHMARK\b/i,
+  /\bSLEEP\b/i,
+  /\bPG_SLEEP\b/i,
+  /\bDBMS_PIPE\b/i,
+  /(?:'|")\s*(?:OR|AND)\s+(?:'[^']*'|"[^"]*"|\d+)\s*=\s*(?:'[^']*'|"[^"]*"|\d+)/i
 ];
 
 // XSS prevention patterns
@@ -45,6 +63,10 @@ const noSqlPatterns = [
  */
 function containsSqlInjection(input: string): boolean {
   return sqlInjectionPatterns.some(pattern => pattern.test(input));
+}
+
+function containsSuspiciousBodyContent(input: string): boolean {
+  return suspiciousBodyPatterns.some(pattern => pattern.test(input));
 }
 
 /**
@@ -123,7 +145,7 @@ export const securityValidation = (req: Request, res: Response, next: NextFuncti
       const bodyStrings = collectStringValues(req.body);
 
       for (const value of bodyStrings) {
-        if (containsSqlInjection(value)) {
+        if (containsSuspiciousBodyContent(value) || containsNoSqlInjection(value)) {
           console.warn(`Potential SQL injection detected in request body`, {
             ip: req.ip,
             userAgent: req.get('User-Agent'),

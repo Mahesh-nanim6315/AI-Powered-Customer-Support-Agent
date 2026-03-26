@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { getExpectedEmbeddingDimension } from "./embedding.service";
 import { buildOrgScopedQuery } from "./vector.service";
 
 test("buildOrgScopedQuery includes org metadata filter", () => {
-  const embedding = [0.1, 0.2, 0.3];
+  const embedding = Array.from(
+    { length: getExpectedEmbeddingDimension() },
+    (_, index) => index / 1000
+  );
   const orgId = "org_123";
 
   const query = buildOrgScopedQuery(embedding, orgId);
