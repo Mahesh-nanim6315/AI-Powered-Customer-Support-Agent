@@ -208,6 +208,7 @@ export class TicketService {
       },
       select: {
         id: true,
+        status: true,
         assignedAgentId: true,
       },
     });
@@ -245,7 +246,7 @@ export class TicketService {
       },
     });
 
-    const previousStatus = existingTicket.assignedAgentId ? "IN_PROGRESS" : "AI_IN_PROGRESS";
+    const previousStatus = toApiStatus(existingTicket.status);
     await NotificationService.sendTicketStatusNotification(ticketId, previousStatus, nextStatus, orgId);
     if (updateData.assignedAgentId) {
       await NotificationService.sendAssignmentNotification(ticketId, updateData.assignedAgentId, orgId);

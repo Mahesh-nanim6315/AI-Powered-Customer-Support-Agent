@@ -6,5 +6,6 @@ export function useTicketActivity(ticketId: string, enabled = true) {
     queryKey: ["tickets", ticketId, "activity"],
     queryFn: () => ticketsService.getActivity(ticketId),
     enabled: enabled && !!ticketId,
+    staleTime: 1000 * 20,
   });
 }

@@ -6,6 +6,7 @@ export function useTicketUnreadCount(ticketId: string, enabled = true) {
     queryKey: ["read-receipts", "ticket", ticketId, "unread-count"],
     queryFn: () => readReceiptService.getTicketUnreadCount(ticketId),
     enabled: enabled && !!ticketId,
+    staleTime: 1000 * 20,
   });
 }
 
