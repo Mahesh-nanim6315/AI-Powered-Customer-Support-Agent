@@ -17,10 +17,10 @@ const aiSettingsSchema = z.object({
 });
 
 function summarizeChangedFields(
-  previous: Record<string, unknown>,
-  next: Record<string, unknown>
+  previous: Partial<Record<keyof typeof aiSettingsSchema._output, unknown>>,
+  next: Partial<Record<keyof typeof aiSettingsSchema._output, unknown>>
 ) {
-  return Object.keys(next).filter((key) => previous[key] !== next[key]);
+  return Object.keys(next).filter((key) => previous[key as keyof typeof previous] !== next[key as keyof typeof next]);
 }
 
 export class AiSettingsController {
@@ -57,14 +57,14 @@ export class AiSettingsController {
 
       const settings = await AiSettingsService.update(orgId, payload);
 
-      const changedFields = summarizeChangedFields(previousSettings as Record<string, unknown>, payload as Record<string, unknown>);
+      const changedFields = summarizeChangedFields(previousSettings, payload);
 
       await AuditService.logUserActivity({
         userId,
         orgId,
         action: "SETTINGS_UPDATED",
         resourceType: "AI_SETTINGS",
-        resourceId: settings.id,
+        resourceId: settings.id ?? undefined,
         ipAddress: req.ip,
         userAgent: req.get("User-Agent"),
         details: {

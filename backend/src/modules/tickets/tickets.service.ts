@@ -69,6 +69,7 @@ export class TicketService {
       }
     } catch (queueError) {
       console.error("Failed to enqueue AI job:", queueError);
+      await this.handleAiFailure(ticket.id, orgId);
     }
 
     return ticket;
@@ -248,6 +249,75 @@ export class TicketService {
 
     const previousStatus = toApiStatus(existingTicket.status);
     await NotificationService.sendTicketStatusNotification(ticketId, previousStatus, nextStatus, orgId);
+    if (updateData.assignedAgentId) {
+      await NotificationService.sendAssignmentNotification(ticketId, updateData.assignedAgentId, orgId);
+      await TicketAssignmentHistoryService.record({
+        ticketId,
+        agentId: updateData.assignedAgentId,
+        action: existingTicket.assignedAgentId ? "REASSIGNED" : "AUTO_ASSIGNED",
+      });
+    }
+
+    return {
+      status: nextStatus,
+      ticket: normalizeTicketForApi(updatedTicket),
+    };
+  }
+
+  static async handleAiFailure(ticketId: string, orgId: string) {
+    const existingTicket = await prisma.ticket.findFirst({
+      where: {
+        id: ticketId,
+        orgId,
+      },
+      select: {
+        id: true,
+        status: true,
+        assignedAgentId: true,
+      },
+    });
+
+    if (!existingTicket) {
+      throw new Error("Ticket not found");
+    }
+
+    const previousStatus = toApiStatus(existingTicket.status);
+    const nextStatus = "ESCALATED";
+    const updateData: {
+      status: ReturnType<typeof toDbStatus>;
+      assignedAgentId?: string;
+    } = {
+      status: toDbStatus(nextStatus),
+    };
+
+    if (!existingTicket.assignedAgentId) {
+      const assignedAgent = await AgentService.assignAgent(orgId);
+      if (assignedAgent) {
+        updateData.assignedAgentId = assignedAgent.id;
+      }
+    }
+
+    const updatedTicket = await prisma.ticket.update({
+      where: { id: ticketId },
+      data: updateData,
+      include: {
+        customer: true,
+        assignedAgent: {
+          include: {
+            user: true,
+          },
+        },
+        messages: true,
+      },
+    });
+
+    io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: nextStatus });
+    io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: nextStatus });
+
+    if (previousStatus !== nextStatus) {
+      await NotificationService.sendTicketStatusNotification(ticketId, previousStatus, nextStatus, orgId);
+    }
+
     if (updateData.assignedAgentId) {
       await NotificationService.sendAssignmentNotification(ticketId, updateData.assignedAgentId, orgId);
       await TicketAssignmentHistoryService.record({

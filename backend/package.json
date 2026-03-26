@@ -6,6 +6,8 @@
   "scripts": {
     "test": "tsx --test src/**/*.test.ts",
     "dev": "tsx watch src/server.ts",
+    "prisma:generate": "prisma generate",
+    "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force && npm run seed",
     "reset-password": "tsx src/scripts/resetPassword.ts"

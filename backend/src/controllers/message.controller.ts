@@ -143,31 +143,46 @@ export const sendMessage = async (req: Request, res: Response) => {
         io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: "AI_IN_PROGRESS" });
         io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: "AI_IN_PROGRESS" });
 
-        const aiRun = await runAgentDetailed(content, orgId, ticketId, io);
-        const aiMessage = await prisma.ticketMessage.create({
-          data: {
-            ticketId,
-            role: "AI",
-            content: aiRun.reply,
-          },
-        });
+        try {
+          const aiRun = await runAgentDetailed(content, orgId, ticketId, io);
+          const aiMessage = await prisma.ticketMessage.create({
+            data: {
+              ticketId,
+              role: "AI",
+              content: aiRun.reply,
+            },
+          });
 
-        const { status: nextStatus } = await TicketService.applyAiOutcome(ticketId, orgId, aiRun);
+          const { status: nextStatus } = await TicketService.applyAiOutcome(ticketId, orgId, aiRun);
 
-        io.to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
-        io.to(`ticket-${ticketId}`).emit("message-added", aiMessage);
-        io.to(`ticket-${ticketId}`).emit("ai_reply", aiMessage);
-        io.to(`ticket-${ticketId}`).emit("ai_mode", { ticketId, mode: aiRun.mode });
-        io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: nextStatus });
-        io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: nextStatus });
-        await NotificationService.sendMessageNotification(ticketId, "AI", orgId);
+          io.to(`ticket-${ticketId}`).emit("newMessage", aiMessage);
+          io.to(`ticket-${ticketId}`).emit("message-added", aiMessage);
+          io.to(`ticket-${ticketId}`).emit("ai_reply", aiMessage);
+          io.to(`ticket-${ticketId}`).emit("ai_mode", { ticketId, mode: aiRun.mode });
+          io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: nextStatus });
+          io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: nextStatus });
+          await NotificationService.sendMessageNotification(ticketId, "AI", orgId);
 
-        return res.json({
-          success: true,
-          userMessage,
-          aiMessage,
-          aiMode: aiRun.mode,
-        });
+          return res.json({
+            success: true,
+            userMessage,
+            aiMessage,
+            aiMode: aiRun.mode,
+          });
+        } catch (aiError) {
+          console.error("AI reply generation failed:", aiError);
+          const { status: nextStatus } = await TicketService.handleAiFailure(ticketId, orgId);
+
+          io.to(`org-${orgId}`).emit("ticket-updated", { id: ticketId, status: nextStatus });
+          io.to(`org-${orgId}`).emit("ticket_update", { ticketId, status: nextStatus });
+
+          return res.status(202).json({
+            success: true,
+            userMessage,
+            handoffMode: "human",
+            message: "AI could not complete the reply. The ticket has been escalated to a human agent.",
+          });
+        }
       }
 
       // Agent message handling

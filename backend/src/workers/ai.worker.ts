@@ -62,6 +62,18 @@ if (workersEnabled && isRedisEnabled && redisConnectionOptions) {
 
   aiWorker.on("failed", (job, err) => {
     logger.error("AI Worker failed", { jobId: job?.id, error: err.message });
+    const ticketId = typeof job?.data?.ticketId === "string" ? job.data.ticketId : null;
+    const orgId = typeof job?.data?.orgId === "string" ? job.data.orgId : null;
+
+    if (ticketId && orgId) {
+      void TicketService.handleAiFailure(ticketId, orgId).catch((fallbackError) => {
+        logger.error("Failed to apply AI fallback", {
+          ticketId,
+          orgId,
+          error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+        });
+      });
+    }
   });
 } else {
   logger.warn("AI Worker disabled via environment configuration");

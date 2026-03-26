@@ -114,7 +114,7 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
         <div className="app-sidebar-header">
           <div className="app-logo">
             <Lightbulb size={24} />
-            <span>Chitti</span>
+            <span>ZenDesk</span>
           </div>
           <button
             className="app-sidebar-toggle"
