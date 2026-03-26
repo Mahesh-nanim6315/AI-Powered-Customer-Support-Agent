@@ -114,7 +114,7 @@ export function AppLayout({ children, userEmail, userRole, onLogout }: AppLayout
         <div className="app-sidebar-header">
           <div className="app-logo">
             <Lightbulb size={24} />
-            <span>ZenDesk</span>
+            <span>ZenDesk AI</span>
           </div>
           <button
             className="app-sidebar-toggle"

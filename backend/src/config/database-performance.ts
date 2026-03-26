@@ -1,26 +1,19 @@
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import { buildPgPoolConfig } from './pg';
 
 // Performance-optimized database configuration
 export const createOptimizedDatabase = () => {
-  // Connection pool configuration for production
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    // Connection pool settings
-    max: 20, // Maximum number of connections in pool
-    min: 5,  // Minimum number of connections in pool
-    idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-    connectionTimeoutMillis: 10000, // Return error after 10 seconds if connection not established
-    
-    // Performance settings
-    application_name: 'chitti-support-system',
-    
-    // SSL settings (adjust based on environment)
-    ssl: process.env.NODE_ENV === 'production' ? {
-      rejectUnauthorized: false,
-    } : false,
-  });
+  const pool = new Pool(
+    buildPgPoolConfig({
+      max: 10,
+      min: 0,
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 10_000,
+      application_name: 'chitti-support-system',
+    })
+  );
 
   const adapter = new PrismaPg(pool);
   
