@@ -670,10 +670,10 @@ export function TicketsPage({ user }: TicketsPageProps) {
                   {canEditOrDeleteTicket && selectedTicket && (
                     <>
                       <Button variant="secondary" onClick={handleOpenEditModal} size="sm">
-                        Edit
+                        E
                       </Button>
                       <Button variant="danger" onClick={handleDeleteTicket} disabled={deleteTicketMutation.isPending} size="sm">
-                        {deleteTicketMutation.isPending ? 'Deleting...' : 'Delete'}
+                        {deleteTicketMutation.isPending ? 'Deleting...' : 'D'}
                       </Button>
                     </>
                   )}

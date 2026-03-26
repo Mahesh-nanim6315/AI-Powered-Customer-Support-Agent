@@ -49,14 +49,6 @@ export function AgentsPage() {
     }
   }, [realtime.agentStatusChanged, agentsQuery]);
 
-  if (agentsQuery.isLoading) {
-    return (
-      <div className="page">
-        <Spinner fullScreen />
-      </div>
-    );
-  }
-
   const agents = agentsQuery.data || [];
   const specializations = Array.from(
     new Set(agents.map((agent) => agent.specialization).filter(Boolean) as string[])
@@ -90,6 +82,14 @@ export function AgentsPage() {
       return matchesSearch && matchesAvailability && matchesLoad && matchesSpecialization;
     });
   }, [agents, searchQuery, availabilityFilter, loadFilter, specializationFilter]);
+
+  if (agentsQuery.isLoading) {
+    return (
+      <div className="page">
+        <Spinner fullScreen />
+      </div>
+    );
+  }
 
   const openEditModal = (agent: Agent) => {
     setSelectedAgent(agent);
