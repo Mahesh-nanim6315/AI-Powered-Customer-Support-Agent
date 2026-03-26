@@ -1,4 +1,4 @@
-import { generateGeminiResponse } from "./gemini.service";
+import { generateOllamaResponse } from "./ollama.service";
 
 export async function analyzeSentiment(message: string) {
     const prompt = `
@@ -16,7 +16,7 @@ Message:
 "${message}"
 `;
 
-    const response = await generateGeminiResponse(prompt);
+    const response = await generateOllamaResponse(prompt);
 
     try {
         return JSON.parse(response);

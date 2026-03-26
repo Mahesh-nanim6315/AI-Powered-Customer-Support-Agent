@@ -1,7 +1,7 @@
 import prisma from "../config/database";
 import { generateEmbedding } from "../ai/embedding.service";
 import { searchSimilar } from "../ai/vector.service";
-import { generateGeminiResponse } from "../ai/gemini.service";
+import { generateOllamaResponse } from "../ai/ollama.service";
 
 export async function runRAG(
   message: string,
@@ -48,5 +48,5 @@ Instructions:
 Answer:
 `;
 
-  return generateGeminiResponse(prompt);
+  return generateOllamaResponse(prompt);
 }

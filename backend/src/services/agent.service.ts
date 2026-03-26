@@ -1,4 +1,4 @@
-import { generateGeminiResponse } from "../ai/gemini.service";
+import { generateOllamaResponse } from "../ai/ollama.service";
 import { searchKnowledge } from "../ai/tools/tools.service";
 import { analyzeSentiment } from "../ai/sentiment.service";
 import { AiSuggestionsService } from "../modules/ai-suggestions/aiSuggestions.service";
@@ -146,7 +146,7 @@ export async function runAgentDetailed(
     `Intent: ${intent}\nSentiment: ${sentiment.sentiment}\nMessage: ${message}`
   );
 
-  finalAnswer = await generateGeminiResponse(prompt, {
+  finalAnswer = await generateOllamaResponse(prompt, {
     model: aiSettings.model,
     temperature: aiSettings.temperature,
   });

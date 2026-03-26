@@ -1,4 +1,4 @@
-import { generateGeminiResponse } from "./gemini.service";
+import { generateOllamaResponse } from "./ollama.service";
 
 export type SupportIntent =
   | "ORDER_TRACKING"
@@ -21,7 +21,7 @@ Message:
 "${message}"
 `;
 
-  const response = await generateGeminiResponse(prompt);
+  const response = await generateOllamaResponse(prompt);
   try {
     const parsed = JSON.parse(response) as { intent?: SupportIntent };
     if (parsed.intent) return parsed.intent;

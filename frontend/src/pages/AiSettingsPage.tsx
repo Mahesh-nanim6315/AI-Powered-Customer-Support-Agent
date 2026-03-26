@@ -8,7 +8,7 @@ import "../page.css";
 const defaultSettings: AiSettings = {
   orgId: "",
   aiEnabled: true,
-  model: "gpt-4.1-mini",
+  model: "llama3",
   temperature: 0.4,
   confidenceThreshold: 0.75,
   autoExecuteSuggestions: false,
@@ -17,6 +17,13 @@ const defaultSettings: AiSettings = {
   escalationEnabled: true,
   replyTone: "professional",
   systemPrompt: "",
+  runtimeConfig: {
+    chatProvider: "ollama",
+    chatModelDefault: "llama3",
+    embeddingProvider: "gemini",
+    embeddingModel: "gemini-embedding-001",
+    embeddingDimension: 768,
+  },
 };
 
 function ToggleField({
@@ -122,7 +129,7 @@ export function AiSettingsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">AI Settings</h1>
-          <p className="page-subtitle">Manage persisted org-level controls for AI routing, confidence, and suggestion execution</p>
+          <p className="page-subtitle">Manage org-level chat settings for Ollama, while embeddings stay on the configured Gemini vector pipeline.</p>
         </div>
         <div className="page-actions">
           <Button variant="secondary" onClick={handleReset} disabled={!isDirty || isSaving}>
@@ -162,13 +169,9 @@ export function AiSettingsPage() {
               onChange={(checked) => setSettings((prev) => ({ ...prev, aiEnabled: checked }))}
               disabled={isSaving}
             />
-            <Select
-              label="Model"
-              options={[
-                { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
-                { value: "gpt-4.1", label: "GPT-4.1" },
-                { value: "gpt-5-mini", label: "GPT-5 Mini" },
-              ]}
+            <Input
+              label="Chat model (Ollama)"
+              placeholder="llama3"
               value={settings.model}
               onChange={(e) => setSettings((prev) => ({ ...prev, model: e.target.value }))}
               disabled={isSaving}
@@ -274,6 +277,23 @@ export function AiSettingsPage() {
             />
           </div>
         </Card>
+
+        <Card className="setting-card">
+          <div className="setting-header">
+            <div className="setting-icon">
+              <Brain size={24} />
+            </div>
+            <h2 className="setting-title">Embedding Runtime</h2>
+          </div>
+          <div className="setting-content">
+            <div className="insight-list">
+              <div className="insight-row"><span>Embedding provider</span><strong>{settings.runtimeConfig?.embeddingProvider || "gemini"}</strong></div>
+              <div className="insight-row"><span>Embedding model</span><strong>{settings.runtimeConfig?.embeddingModel || "gemini-embedding-001"}</strong></div>
+              <div className="insight-row"><span>Vector dimension</span><strong>{settings.runtimeConfig?.embeddingDimension || 768}</strong></div>
+            </div>
+            <p className="page-subtitle">Embeddings are runtime-configured from the backend environment and are not changed by org chat settings.</p>
+          </div>
+        </Card>
       </div>
 
       <Card className="setting-card setting-card--full">
@@ -286,7 +306,10 @@ export function AiSettingsPage() {
         <div className="setting-content">
           <div className="insight-list">
             <div className="insight-row"><span>AI enabled</span><strong>{settings.aiEnabled ? "Yes" : "No"}</strong></div>
-            <div className="insight-row"><span>Model</span><strong>{settings.model}</strong></div>
+            <div className="insight-row"><span>Chat provider</span><strong>{settings.runtimeConfig?.chatProvider || "ollama"}</strong></div>
+            <div className="insight-row"><span>Chat model</span><strong>{settings.model}</strong></div>
+            <div className="insight-row"><span>Embedding provider</span><strong>{settings.runtimeConfig?.embeddingProvider || "gemini"}</strong></div>
+            <div className="insight-row"><span>Embedding model</span><strong>{settings.runtimeConfig?.embeddingModel || "gemini-embedding-001"}</strong></div>
             <div className="insight-row"><span>Confidence threshold</span><strong>{Math.round(settings.confidenceThreshold * 100)}%</strong></div>
             <div className="insight-row"><span>Reply tone</span><strong>{settings.replyTone}</strong></div>
           </div>

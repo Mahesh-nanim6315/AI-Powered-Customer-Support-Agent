@@ -1,6 +1,6 @@
 import { generateEmbedding } from "../ai/embedding.service";
 import { searchSimilar } from "../ai/vector.service";
-import { generateGeminiResponse } from "../ai/gemini.service";
+import { generateOllamaResponse } from "../ai/ollama.service";
 
 export async function runRAG(message: string, orgId: string) {
   const embedding = await generateEmbedding(message);
@@ -23,7 +23,7 @@ ${message}
 Answer clearly and professionally.
 `;
 
-  const aiReply = await generateGeminiResponse(prompt);
+  const aiReply = await generateOllamaResponse(prompt);
 
   return aiReply;
 }
