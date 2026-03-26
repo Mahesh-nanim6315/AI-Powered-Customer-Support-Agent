@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Pinecone } from "@pinecone-database/pinecone";
+import { PDFParse } from "pdf-parse";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import { generateEmbedding } from "../ai/embedding.service";
@@ -17,7 +18,6 @@ const multer = require("multer") as {
 };
 
 const upload = multer({ dest: "uploads/" });
-const pdfParse = require("pdf-parse") as (data: Buffer) => Promise<{ text: string }>;
 
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
@@ -43,8 +43,8 @@ export const uploadKnowledge = async (req: UploadRequest, res: Response) => {
 
     tempFilePath = req.file.path;
     const fileBuffer = fs.readFileSync(tempFilePath);
-
-    const parsed = await pdfParse(fileBuffer);
+    const parser = new PDFParse({ data: fileBuffer });
+    const parsed = await parser.getText().finally(() => parser.destroy());
     const fullText = (parsed.text ?? "").trim();
     if (!fullText) {
       return res.status(400).json({ error: "Uploaded document did not contain readable text" });
